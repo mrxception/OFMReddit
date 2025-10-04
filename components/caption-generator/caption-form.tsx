@@ -106,33 +106,64 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
       <div className="border-2 border-border rounded-lg p-5 bg-card">
         <h3 className="text-lg font-semibold text-foreground mb-4">Creator Features</h3>
-        <div className={formData.mode === "keywords" ? "space-y-4" : "grid grid-cols-[1fr_auto] gap-4 items-start"}>
-          <div className="space-y-2">
-            <Label htmlFor="features" className="text-foreground">
-              {formData.mode === "keywords" ? "Keywords" : "Niche/Physical Features"}
-            </Label>
-            {formData.mode === "keywords" ? (
-              <Textarea
-                id="features"
-                placeholder="e.g., blonde, athletic, lingerie, bedroom"
-                value={formData.physicalFeatures}
-                onChange={(e) => handleChange(e, "physicalFeatures")}
-                className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[80px]"
-                disabled={isGenerating}
-              />
-            ) : (
+        {formData.mode === "advanced" ? (
+          <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
+            <div className="space-y-2">
+              <Label htmlFor="features" className="text-foreground">
+                Niche/Physical Features
+              </Label>
               <Input
                 id="features"
-                placeholder="e.g., blonde hair, athletic build, curvy"
+                placeholder="e.g., blonde hair, athletic build, curvy figure"
                 value={formData.physicalFeatures}
                 onChange={(e) => handleChange(e, "physicalFeatures")}
                 className="bg-background border-border text-foreground placeholder:text-muted-foreground"
                 disabled={isGenerating}
               />
-            )}
-          </div>
+            </div>
 
-          <div className="space-y-2">
+            <div className="space-y-2 border border-border rounded-lg p-4">
+              <Label className="text-foreground">Gender</Label>
+              <RadioGroup
+                value={formData.gender}
+                onValueChange={(v) => setFormData((prev) => ({ ...prev, gender: v as "female" | "male" | "trans" }))}
+                className="flex gap-4"
+                disabled={isGenerating}
+              >
+                {(["female", "male", "trans"] as const).map((value: "female" | "male" | "trans") => (
+                  <div key={value} className="flex items-center space-x-2">
+                    <RadioGroupItem value={value} id={value} className="border-border" />
+                    <Label htmlFor={value} className="text-foreground font-normal cursor-pointer">
+                      {value.charAt(0).toUpperCase() + value.slice(1)}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="features" className="text-foreground">
+                Keywords
+              </Label>
+              <Textarea
+                id="features"
+                placeholder="e.g., blonde, athletic, lingerie, bedroom setting"
+                value={formData.physicalFeatures}
+                onChange={(e) => handleChange(e, "physicalFeatures")}
+                className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[80px]"
+                disabled={isGenerating}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {formData.mode === "keywords" && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2 border border-border rounded-lg p-4">
             <Label className="text-foreground">Gender</Label>
             <RadioGroup
               value={formData.gender}
@@ -151,28 +182,51 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </RadioGroup>
             {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
           </div>
-        </div>
-      </div>
 
-      <div className="space-y-3 border border-border rounded-lg p-4 max-w-xs mx-auto">
-        <Label className="text-foreground text-lg">Degen Scale</Label>
-        <div className="space-y-2">
-          <Slider
-            value={[formData.degenScale]}
-            onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
-            min={1}
-            max={3}
-            step={1}
-            className="w-full"
-            disabled={isGenerating}
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Suggestive</span>
-            <span className="transform -translate-x-3">Direct</span>
-            <span>Explicit</span>
+          <div className="space-y-2 border border-border rounded-lg p-4">
+            <Label className="text-foreground">Degen Scale</Label>
+            <div className="space-y-2">
+              <Slider
+                value={[formData.degenScale]}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
+                min={1}
+                max={3}
+                step={1}
+                className="w-full"
+                disabled={isGenerating}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Suggestive</span>
+                <span className="transform -translate-x-3">Direct</span>
+                <span>Explicit</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Degen Scale in Advanced Mode: Below Creator Features, centered */}
+      {formData.mode === "advanced" && (
+        <div className="space-y-3 border border-border rounded-lg p-4 max-w-xs mx-auto">
+          <Label className="text-foreground text-lg">Degen Scale</Label>
+          <div className="space-y-2">
+            <Slider
+              value={[formData.degenScale]}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
+              min={1}
+              max={3}
+              step={1}
+              className="w-full"
+              disabled={isGenerating}
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Suggestive</span>
+              <span className="transform -translate-x-3">Direct</span>
+              <span>Explicit</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {formData.mode === "advanced" && (
         <>
@@ -247,7 +301,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </Label>
             <Textarea
               id="context"
-              placeholder="e.g., cozy bedroom, beach at sunset, gym workout"
+              placeholder="e.g., cozy bedroom with candles, beach at sunset, gym during workout"
               value={formData.visualContext}
               onChange={(e) => handleChange(e, "visualContext")}
               className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[80px]"
@@ -261,7 +315,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </Label>
             <Input
               id="mood"
-              placeholder="e.g., playful, seductive, confident, shy"
+              placeholder="e.g., playful and flirty, seductive and bold, confident and empowered"
               value={formData.captionMood}
               onChange={(e) => handleChange(e, "captionMood")}
               className="bg-background border-border text-foreground placeholder:text-muted-foreground"
@@ -275,7 +329,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </Label>
             <Input
               id="rules"
-              placeholder="e.g., include [F], no explicit words, max 50 characters"
+              placeholder="e.g., include [F], avoid explicit terms, max 50 characters"
               value={formData.rules}
               onChange={(e) => handleChange(e, "rules")}
               className="bg-background border-border text-foreground placeholder:text-muted-foreground"
