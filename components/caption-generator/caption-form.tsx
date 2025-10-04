@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -80,6 +81,10 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     setFormData((prev) => ({ ...prev, [field]: e.target.value }))
   }
 
+  const handleGenderChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, gender: value as "female" | "male" | "trans" }))
+  }
+
   const handleToggleInteractive = (checked: boolean) => {
     setFormData((prev) => ({ ...prev, isInteractive: checked } as FormData))
   }
@@ -100,12 +105,17 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <TooltipTrigger asChild>
                   <TabsTrigger
                     value="keywords"
-                    className="w-full h-full bg-[var(--muted)] hover:bg-[var(--secondary)] data-[state=active]:bg-[var(--primary)] data-[state=active]:text-[var(--primary-foreground)] data-[state=active]:border-[var(--primary)] data-[state=active]:border"
+                    style={{
+                      backgroundColor: formData.mode === "keywords" ? "var(--primary)" : "var(--muted)",
+                      color: formData.mode === "keywords" ? "var(--primary-foreground)" : "var(--card-foreground)",
+                      border: formData.mode === "keywords" ? "1px solid var(--primary)" : "none",
+                    }}
+                    className="w-full h-full hover:bg-[var(--secondary)] transition-colors duration-200"
                   >
                     Keywords Mode
                   </TabsTrigger>
                 </TooltipTrigger>
-                <TooltipContent>
+                <TooltipContent className="max-w-xs">
                   <p>Provide keywords (e.g., niche, visual context, mood), and the AI will automatically infer the best caption strategy for your post.</p>
                 </TooltipContent>
               </Tooltip>
@@ -113,12 +123,17 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <TooltipTrigger asChild>
                   <TabsTrigger
                     value="advanced"
-                    className="w-full h-full bg-[var(--muted)] hover:bg-[var(--secondary)] data-[state=active]:bg-[var(--primary)] data-[state=active]:text-[var(--primary-foreground)] data-[state=active]:border-[var(--primary)] data-[state=active]:border"
+                    style={{
+                      backgroundColor: formData.mode === "advanced" ? "var(--primary)" : "var(--muted)",
+                      color: formData.mode === "advanced" ? "var(--primary-foreground)" : "var(--card-foreground)",
+                      border: formData.mode === "advanced" ? "1px solid var(--primary)" : "none",
+                    }}
+                    className="w-full h-full hover:bg-[var(--secondary)] transition-colors duration-200"
                   >
                     Advanced Mode
                   </TabsTrigger>
                 </TooltipTrigger>
-                <TooltipContent>
+                <TooltipContent className="max-w-xs">
                   <p>Provides maximum strategic control. You define the subreddit context, visual details, and mood to receive highly tailored captions.</p>
                 </TooltipContent>
               </Tooltip>
@@ -140,28 +155,23 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     placeholder="e.g., blonde hair, athletic build, curvy figure"
                     value={formData.physicalFeatures}
                     onChange={(e) => handleChange(e, "physicalFeatures")}
-                    className="bg-[var(--input)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+                    className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
                     disabled={isGenerating}
                   />
                 </div>
 
-                <div className="space-y-2 border border-[var(--border)] rounded-lg p-4">
+                <div className="space-y-2">
                   <Label className="text-[var(--card-foreground)]">Gender</Label>
-                  <RadioGroup
-                    value={formData.gender}
-                    onValueChange={(v) => setFormData((prev) => ({ ...prev, gender: v as "female" | "male" | "trans" }))}
-                    className="flex gap-4"
-                    disabled={isGenerating}
-                  >
-                    {(["female", "male", "trans"] as const).map((value: "female" | "male" | "trans") => (
-                      <div key={value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={value} id={value} className="border-[var(--border)]" />
-                        <Label htmlFor={value} className="text-[var(--card-foreground)] font-normal cursor-pointer">
-                          {value.charAt(0).toUpperCase() + value.slice(1)}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
+                  <Select value={formData.gender} onValueChange={handleGenderChange} disabled={isGenerating}>
+                    <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--foreground)]">
+                      <SelectValue placeholder="Select Gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="trans">Trans</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
                 </div>
               </div>
@@ -177,28 +187,23 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   placeholder="e.g., blonde, athletic, lingerie, bedroom setting"
                   value={formData.physicalFeatures}
                   onChange={(e) => handleChange(e, "physicalFeatures")}
-                  className="bg-[var(--input)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] min-h-[80px]"
+                  className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70 min-h-[80px]"
                   disabled={isGenerating}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 border border-[var(--border)] rounded-lg p-4">
                   <Label className="text-[var(--card-foreground)]">Gender</Label>
-                  <RadioGroup
-                    value={formData.gender}
-                    onValueChange={(v) => setFormData((prev) => ({ ...prev, gender: v as "female" | "male" | "trans" }))}
-                    className="flex gap-4"
-                    disabled={isGenerating}
-                  >
-                    {(["female", "male", "trans"] as const).map((value: "female" | "male" | "trans") => (
-                      <div key={value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={value} id={value} className="border-[var(--border)]" />
-                        <Label htmlFor={value} className="text-[var(--card-foreground)] font-normal cursor-pointer">
-                          {value.charAt(0).toUpperCase() + value.slice(1)}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
+                  <Select value={formData.gender} onValueChange={handleGenderChange} disabled={isGenerating}>
+                    <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--foreground)]">
+                      <SelectValue placeholder="Select Gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="trans">Trans</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
                 </div>
 
@@ -229,27 +234,51 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         {formData.mode === "advanced" && (
           <>
             <div className="grid grid-cols-[1fr_1fr] gap-2">
-              <div className="space-y-3 border border-[var(--border)] rounded-lg p-4 max-w-md">
-                <Label className="text-[var(--card-foreground)] text-lg">Degen Scale</Label>
-                <div className="space-y-2 p-2">
-                  <Slider
-                    value={[formData.degenScale]}
-                    onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
-                    min={1}
-                    max={3}
-                    step={1}
-                    className="w-full [&>div]:h-6 [&>div]:cursor-pointer [&>div>span]:w-6 [&>div>span]:h-6 [&>div>span]:data-[state=active]:bg-[var(--primary-foreground)]"
-                    disabled={isGenerating}
-                  />
-                  <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
-                    <span>Suggestive</span>
-                    <span className="transform -translate-x-3">Direct</span>
-                    <span>Explicit</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="space-y-3 border border-[var(--border)] rounded-lg p-4 max-w-md">
+                    <Label className="text-[var(--card-foreground)] text-lg">Degen Scale</Label>
+                    <div className="space-y-2 p-2">
+                      <Slider
+                        value={[formData.degenScale]}
+                        onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
+                        min={1}
+                        max={3}
+                        step={1}
+                        className="w-full [&>div]:h-6 [&>div]:cursor-pointer [&>div>span]:w-6 [&>div>span]:h-6 [&>div>span]:data-[state=active]:bg-[var(--primary-foreground)]"
+                        disabled={isGenerating}
+                      />
+                      <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
+                        <span>Suggestive</span>
+                        <span className="transform -translate-x-3">Direct</span>
+                        <span>Explicit</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Adjusts the intensity of the caption's tone.</p>
+                  <ul className="list-disc pl-5 mt-2">
+                    <li><strong>Suggestive</strong>: Subtle and hinting at content.</li>
+                    <li><strong>Direct</strong>: Clear and straightforward language.</li>
+                    <li><strong>Explicit</strong>: Bold and unambiguous phrasing.</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
               <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
-                <Label className="text-[var(--card-foreground)] text-lg">Creative Style</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Label className="text-[var(--card-foreground)] text-lg">Creative Style</Label>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Optionally refines the caption's narrative to focus on a specific type of scenario.</p>
+                    <ul className="list-disc pl-5 mt-2">
+                      <li><strong>Grounded Scenario</strong>: Generates captions describing a plausible, real-world scenario to feel authentic and relatable.</li>
+                      <li><strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view experience by framing the content as a fantasy scenario.</li>
+                      <li><strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow, fetish-focused audience to signal 'insider' knowledge.</li>
+                    </ul>
+                  </TooltipContent>
+                </Tooltip>
                 <RadioGroup
                   value={formData.creativeStyle}
                   onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
@@ -263,28 +292,32 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       { value: "kink", label: "Kink-Specific" },
                     ] as const
                   ).map((option) => (
-                    <Tooltip key={option.value}>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-[var(--border)]" />
-                          <Label htmlFor={`style-${option.value}`} className="text-[var(--card-foreground)] font-normal cursor-pointer">
-                            {option.label}
-                          </Label>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {option.value === "grounded" && <p>Generates captions describing a plausible, real-world scenario to feel authentic and relatable.</p>}
-                        {option.value === "fantasy" && <p>Creates an immersive or escapist point-of-view experience by framing the content as a fantasy scenario.</p>}
-                        {option.value === "kink" && <p>Uses specific jargon and scenarios for a narrow, fetish-focused audience to signal 'insider' knowledge.</p>}
-                      </TooltipContent>
-                    </Tooltip>
+                    <div key={option.value} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-[var(--border)]" />
+                      <Label htmlFor={`style-${option.value}`} className="text-[var(--card-foreground)] font-normal cursor-pointer">
+                        {option.label}
+                      </Label>
+                    </div>
                   ))}
                 </RadioGroup>
               </div>
             </div>
 
             <div className="space-y-3">
-              <Label className="text-[var(--card-foreground)] text-lg">Subreddit Type</Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Label className="text-[var(--card-foreground)] text-lg">Subreddit Type</Label>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Determines the caption strategy based on the subreddit type.</p>
+                  <ul className="list-disc pl-5 mt-2">
+                    <li><strong>Generalist</strong>: For large, broad-appeal subreddits, e.g. r/slutsofsnapchat, r/nude_selfie.</li>
+                    <li><strong>Body/Attribute</strong>: Focused on specific physical traits or demographics, e.g. r/boobs, r/latinas, r/foreverteens.</li>
+                    <li><strong>Kink/Activity</strong>: Defined by a specific fetish, activity, or scenario, e.g. r/daddysbrokentoys, r/twerking.</li>
+                    <li><strong>Aesthetic/Subculture</strong>: For subcultures with a strong identity, like Goth or Cosplay, r/gymgirls, rbigtiddygothgf.</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
               <div className="grid grid-cols-2 gap-5">
                 {(
                   [
@@ -294,82 +327,97 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     { value: "aesthetic", label: "Aesthetic/Subculture" },
                   ] as const
                 ).map((option: { value: string; label: string }) => (
-                  <Tooltip key={option.value}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            subredditType: option.value as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
-                          }))
-                        }
-                        className={`p-3 rounded-lg border-2 text-left transition-colors ${formData.subredditType === option.value
-                          ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--card-foreground)]"
-                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[var(--secondary)]"
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        subredditType: option.value as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
+                      }))
+                    }
+                    className={`p-3 rounded-lg border-2 text-left transition-colors ${formData.subredditType === option.value
+                      ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--card-foreground)]"
+                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[var(--secondary)]"
+                      }`}
+                    disabled={isGenerating}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.subredditType === option.value ? "border-[var(--primary)]" : "border-[var(--border)]"
                           }`}
-                        disabled={isGenerating}
                       >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.subredditType === option.value ? "border-[var(--primary)]" : "border-[var(--border)]"
-                              }`}
-                          >
-                            {formData.subredditType === option.value && <div className="w-2 h-2 rounded-full bg-[var(--primary)]" />}
-                          </div>
-                          <span className="text-sm">{option.label}</span>
-                        </div>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {option.value === "generalist" && <p>Determines the caption strategy based on the subreddit type. Generalist: For large, broad-appeal subreddits (e.g., r/tslutsofsnapchat, r/nude_selfie).</p>}
-                      {option.value === "body-specific" && <p>Determines the caption strategy based on the subreddit type. Body/Attribute: Focused on specific physical traits or demographics (e.g., r/boobs, r/latinas, r/foreverteens).</p>}
-                      {option.value === "kink-specific" && <p>Determines the caption strategy based on the subreddit type. Kink/Activity: Defined by a specific fetish, activity, or scenario (e.g., r/daddysbrokentoys, r/twerking).</p>}
-                      {option.value === "aesthetic" && <p>Determines the caption strategy based on the subreddit type. Aesthetic/Subculture: For subcultures with a strong identity, like Goth or Cosplay (e.g., r/gymgirls, rbigtiddygothgf).</p>}
-                    </TooltipContent>
-                  </Tooltip>
+                        {formData.subredditType === option.value && <div className="w-2 h-2 rounded-full bg-[var(--primary)]" />}
+                      </div>
+                      <span className="text-sm">{option.label}</span>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="context" className="text-[var(--card-foreground)] text-lg">
-                Visual Context
-              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Label htmlFor="context" className="text-[var(--card-foreground)] text-lg">
+                    Visual Context
+                  </Label>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Describes the setting or environment of the content to guide the caption's tone and imagery.</p>
+                  <p>Example: cozy bedroom with candles, beach at sunset, gym during workout</p>
+                </TooltipContent>
+              </Tooltip>
               <Textarea
                 id="context"
                 placeholder="e.g., cozy bedroom with candles, beach at sunset, gym during workout"
                 value={formData.visualContext}
                 onChange={(e) => handleChange(e, "visualContext")}
-                className="bg-[var(--input)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] min-h-[80px]"
+                className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70 min-h-[80px]"
                 disabled={isGenerating}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mood" className="text-[var(--card-foreground)] text-lg">
-                Caption Mood
-              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Label htmlFor="mood" className="text-[var(--card-foreground)] text-lg">
+                    Caption Mood
+                  </Label>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Sets the emotional tone or attitude of the caption to match the desired vibe.</p>
+                  <p>Example: playful and flirty, seductive and bold, confident and empowered</p>
+                </TooltipContent>
+              </Tooltip>
               <Input
                 id="mood"
                 placeholder="e.g., playful and flirty, seductive and bold, confident and empowered"
                 value={formData.captionMood}
                 onChange={(e) => handleChange(e, "captionMood")}
-                className="bg-[var(--input)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+                className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
                 disabled={isGenerating}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rules" className="text-[var(--card-foreground)] text-lg">
-                Rules
-              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Label htmlFor="rules" className="text-[var(--card-foreground)] text-lg">
+                    Rules
+                  </Label>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Defines specific guidelines or constraints for the caption generation.</p>
+                  <p>Example: include [F], avoid explicit terms, max 50 characters</p>
+                </TooltipContent>
+              </Tooltip>
               <Input
                 id="rules"
                 placeholder="e.g., include [F], avoid explicit terms, max 50 characters"
                 value={formData.rules}
                 onChange={(e) => handleChange(e, "rules")}
-                className="bg-[var(--input)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+                className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
                 disabled={isGenerating}
               />
             </div>
@@ -386,11 +434,18 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 className="data-[state=checked]:bg-red-600 bg-gray-700"
               />
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="max-w-xs">
               <p>Enable to generate interactive/clickbait captions (e.g., 'Would you introduce me to your parents?') that encourage comments like 'yes' or 'no'.</p>
             </TooltipContent>
           </Tooltip>
-          <Label className="text-[var(--card-foreground)]">Interactive/Clickbait Captions</Label>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Label className="text-[var(--card-foreground)]">Interactive/Clickbait Captions (beware some subreddits do not allow questions)</Label>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p>Enabling 'Interactive/Clickbait Captions' means all caption options for this specific post will be clickbait/interactive.</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         <Button
