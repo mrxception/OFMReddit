@@ -168,7 +168,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
           />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Suggestive</span>
-            <span>Direct</span>
+            <span className="transform -translate-x-3">Direct</span>
             <span>Explicit</span>
           </div>
         </div>
