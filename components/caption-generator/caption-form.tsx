@@ -90,7 +90,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         {error && <div className="p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
 
         <div className="space-y-2">
-          <Label className="text-foreground text-lg">Mode</Label>
+          <Label className="text-[var(--card-foreground)] text-lg">Mode</Label>
           <Tabs
             value={formData.mode}
             onValueChange={(v) => setFormData((prev) => ({ ...prev, mode: v as "keywords" | "advanced" }))}
@@ -106,7 +106,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </TabsTrigger>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>In Keywords Mode, the AI generates captions using simple keywords you provide, combined with gender and degen scale for basic, descriptive outputs.</p>
+                  <p>Provide keywords (e.g., niche, visual context, mood), and the AI will automatically infer the best caption strategy for your post.</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -119,7 +119,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </TabsTrigger>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>In Advanced Mode, the AI crafts detailed captions based on niche features, subreddit type, creative style, visual context, mood, and custom rules for more tailored and complex results.</p>
+                  <p>Provides maximum strategic control. You define the subreddit context, visual details, and mood to receive highly tailored captions.</p>
                 </TooltipContent>
               </Tooltip>
             </TabsList>
@@ -163,51 +163,6 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     ))}
                   </RadioGroup>
                   {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
-                </div>
-              </div>
-              <div className="grid grid-cols-[1fr_1fr] gap-2">
-                <div className="space-y-3 border border-[var(--border)] rounded-lg p-4 max-w-md">
-                  <Label className="text-[var(--card-foreground)] text-lg">Degen Scale</Label>
-                  <div className="space-y-2 p-2">
-                    <Slider
-                      value={[formData.degenScale]}
-                      onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
-                      min={1}
-                      max={3}
-                      step={1}
-                      className="w-full [&>div]:h-6 [&>div]:cursor-pointer [&>div>span]:w-6 [&>div>span]:h-6 [&>div>span]:data-[state=active]:bg-[var(--primary-foreground)]"
-                      disabled={isGenerating}
-                    />
-                    <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
-                      <span>Suggestive</span>
-                      <span className="transform -translate-x-3">Direct</span>
-                      <span>Explicit</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
-                  <Label className="text-[var(--card-foreground)] text-lg">Creative Style</Label>
-                  <RadioGroup
-                    value={formData.creativeStyle}
-                    onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
-                    className="flex space-x-2"
-                    disabled={isGenerating}
-                  >
-                    {(
-                      [
-                        { value: "grounded", label: "Grounded Scenario" },
-                        { value: "fantasy", label: "Fantasy / Roleplay" },
-                        { value: "kink", label: "Kink-Specific" },
-                      ] as const
-                    ).map((option) => (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-[var(--border)]" />
-                        <Label htmlFor={`style-${option.value}`} className="text-[var(--card-foreground)] font-normal cursor-pointer">
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
                 </div>
               </div>
             </>
@@ -273,6 +228,61 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
         {formData.mode === "advanced" && (
           <>
+            <div className="grid grid-cols-[1fr_1fr] gap-2">
+              <div className="space-y-3 border border-[var(--border)] rounded-lg p-4 max-w-md">
+                <Label className="text-[var(--card-foreground)] text-lg">Degen Scale</Label>
+                <div className="space-y-2 p-2">
+                  <Slider
+                    value={[formData.degenScale]}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
+                    min={1}
+                    max={3}
+                    step={1}
+                    className="w-full [&>div]:h-6 [&>div]:cursor-pointer [&>div>span]:w-6 [&>div>span]:h-6 [&>div>span]:data-[state=active]:bg-[var(--primary-foreground)]"
+                    disabled={isGenerating}
+                  />
+                  <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
+                    <span>Suggestive</span>
+                    <span className="transform -translate-x-3">Direct</span>
+                    <span>Explicit</span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
+                <Label className="text-[var(--card-foreground)] text-lg">Creative Style</Label>
+                <RadioGroup
+                  value={formData.creativeStyle}
+                  onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
+                  className="flex space-x-2"
+                  disabled={isGenerating}
+                >
+                  {(
+                    [
+                      { value: "grounded", label: "Grounded Scenario" },
+                      { value: "fantasy", label: "Fantasy / Roleplay" },
+                      { value: "kink", label: "Kink-Specific" },
+                    ] as const
+                  ).map((option) => (
+                    <Tooltip key={option.value}>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-[var(--border)]" />
+                          <Label htmlFor={`style-${option.value}`} className="text-[var(--card-foreground)] font-normal cursor-pointer">
+                            {option.label}
+                          </Label>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {option.value === "grounded" && <p>Generates captions describing a plausible, real-world scenario to feel authentic and relatable.</p>}
+                        {option.value === "fantasy" && <p>Creates an immersive or escapist point-of-view experience by framing the content as a fantasy scenario.</p>}
+                        {option.value === "kink" && <p>Uses specific jargon and scenarios for a narrow, fetish-focused audience to signal 'insider' knowledge.</p>}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </RadioGroup>
+              </div>
+            </div>
+
             <div className="space-y-3">
               <Label className="text-[var(--card-foreground)] text-lg">Subreddit Type</Label>
               <div className="grid grid-cols-2 gap-5">
@@ -284,31 +294,40 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     { value: "aesthetic", label: "Aesthetic/Subculture" },
                   ] as const
                 ).map((option: { value: string; label: string }) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        subredditType: option.value as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
-                      }))
-                    }
-                    className={`p-3 rounded-lg border-2 text-left transition-colors ${formData.subredditType === option.value
-                      ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--card-foreground)]"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[var(--secondary)]"
-                      }`}
-                    disabled={isGenerating}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.subredditType === option.value ? "border-[var(--primary)]" : "border-[var(--border)]"
+                  <Tooltip key={option.value}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            subredditType: option.value as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
+                          }))
+                        }
+                        className={`p-3 rounded-lg border-2 text-left transition-colors ${formData.subredditType === option.value
+                          ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--card-foreground)]"
+                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[var(--secondary)]"
                           }`}
+                        disabled={isGenerating}
                       >
-                        {formData.subredditType === option.value && <div className="w-2 h-2 rounded-full bg-[var(--primary)]" />}
-                      </div>
-                      <span className="text-sm">{option.label}</span>
-                    </div>
-                  </button>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.subredditType === option.value ? "border-[var(--primary)]" : "border-[var(--border)]"
+                              }`}
+                          >
+                            {formData.subredditType === option.value && <div className="w-2 h-2 rounded-full bg-[var(--primary)]" />}
+                          </div>
+                          <span className="text-sm">{option.label}</span>
+                        </div>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {option.value === "generalist" && <p>Determines the caption strategy based on the subreddit type. Generalist: For large, broad-appeal subreddits (e.g., r/tslutsofsnapchat, r/nude_selfie).</p>}
+                      {option.value === "body-specific" && <p>Determines the caption strategy based on the subreddit type. Body/Attribute: Focused on specific physical traits or demographics (e.g., r/boobs, r/latinas, r/foreverteens).</p>}
+                      {option.value === "kink-specific" && <p>Determines the caption strategy based on the subreddit type. Kink/Activity: Defined by a specific fetish, activity, or scenario (e.g., r/daddysbrokentoys, r/twerking).</p>}
+                      {option.value === "aesthetic" && <p>Determines the caption strategy based on the subreddit type. Aesthetic/Subculture: For subcultures with a strong identity, like Goth or Cosplay (e.g., r/gymgirls, rbigtiddygothgf).</p>}
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
               </div>
             </div>
