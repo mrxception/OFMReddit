@@ -1,75 +1,105 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import type React from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Loader2 } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showResendVerification, setShowResendVerification] = useState(false)
+  const [resendEmail, setResendEmail] = useState("")
+  const router = useRouter()
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
+      const data = await res.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed")
+      if (!res.ok) {
+        setError(data.error || "Login failed")
+        if (res.status === 403) {
+          setShowResendVerification(true)
+          setResendEmail(email)
+        }
+        return
       }
 
-      localStorage.setItem("token", data.token)
-      localStorage.setItem("user", JSON.stringify(data.user))
-
-      window.dispatchEvent(new Event("authChange"))
+      if (data.token && data.user) {
+        localStorage.setItem("token", data.token)
+        localStorage.setItem("user", JSON.stringify(data.user))
+        // Trigger auth change event for navigation to update
+        window.dispatchEvent(new Event("authChange"))
+      }
 
       router.push("/scraper")
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
+  const handleResendVerification = async () => {
+    try {
+      const { error: supaError } = await supabase.auth.resend({
+        email: resendEmail,
+        type: "signup",
+      })
+
+      if (supaError) {
+        alert(supaError.message || "Failed to resend verification email")
+      } else {
+        alert("Verification email resent successfully")
+        setShowResendVerification(false)
+      }
+    } catch (err) {
+      alert("Something went wrong. Please try again.")
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-foreground mb-2">OFMReddit</h1>
-          <p className="text-muted-foreground">Sign in to your account</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-card border border-border rounded-2xl shadow-lg p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Welcome Back</h1>
+            <p className="text-muted-foreground">Sign in to your account</p>
+          </div>
 
-        <div className="bg-card border border-border rounded-lg p-8 shadow-lg">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">{error}</div>
-            )}
+          {error && (
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
 
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 required
                 disabled={loading}
-                className="bg-background"
               />
             </div>
 
@@ -78,25 +108,44 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
                 required
                 disabled={loading}
-                className="bg-background"
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link href="/register" className="text-primary hover:underline font-medium">
-              Sign up
-            </Link>
+          {showResendVerification && (
+            <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                Haven't received the verification email?
+              </p>
+              <Button onClick={handleResendVerification} variant="outline" size="sm" className="w-full bg-transparent">
+                Resend Verification Email
+              </Button>
+            </div>
+          )}
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <a href="/register" className="text-primary hover:underline font-medium">
+                Sign up
+              </a>
+            </p>
           </div>
         </div>
       </div>

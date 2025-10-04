@@ -83,16 +83,27 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
       <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
         <div className="space-y-2">
           <Label htmlFor="features" className="text-foreground">
-            Niche/Physical Features
+            {formData.mode === "keywords" ? "Keywords" : "Niche/Physical Features"}
           </Label>
-          <Input
-            id="features"
-            placeholder="e.g., blonde hair, athletic build, curvy"
-            value={formData.physicalFeatures}
-            onChange={(e) => handleChange(e, "physicalFeatures")}
-            className="bg-background border-border text-foreground placeholder:text-muted-foreground"
-            disabled={isGenerating}
-          />
+          {formData.mode === "keywords" ? (
+            <Textarea
+              id="features"
+              placeholder="e.g., blonde, athletic, lingerie, bedroom"
+              value={formData.physicalFeatures}
+              onChange={(e) => handleChange(e, "physicalFeatures")}
+              className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[80px]"
+              disabled={isGenerating}
+            />
+          ) : (
+            <Input
+              id="features"
+              placeholder="e.g., blonde hair, athletic build, curvy"
+              value={formData.physicalFeatures}
+              onChange={(e) => handleChange(e, "physicalFeatures")}
+              className="bg-background border-border text-foreground placeholder:text-muted-foreground"
+              disabled={isGenerating}
+            />
+          )}
         </div>
 
         <div className="space-y-2">
@@ -117,64 +128,66 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
       </div>
 
       {formData.mode === "advanced" && (
-        <div className="space-y-3">
-          <Label className="text-foreground">Subreddit Type</Label>
-          <div className="grid grid-cols-2 gap-3">
-            {(
-              [
-                { value: "generalist", label: "Generalist Megahub" },
-                { value: "body-specific", label: "Body/Attribute Specific" },
-                { value: "kink-specific", label: "Kink/Activity Specific" },
-                { value: "aesthetic", label: "Aesthetic/Subculture" },
-              ] as const
-            ).map((option: { value: string; label: string }) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    subredditType: option.value as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
-                  }))
-                }
-                className={`p-3 rounded-lg border-2 text-left transition-colors ${
-                  formData.subredditType === option.value
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "border-border bg-background text-muted-foreground hover:border-muted-foreground"
-                }`}
-                disabled={isGenerating}
-              >
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      formData.subredditType === option.value ? "border-primary" : "border-border"
-                    }`}
-                  >
-                    {formData.subredditType === option.value && <div className="w-2 h-2 rounded-full bg-primary" />}
+        <>
+          <div className="space-y-3">
+            <Label className="text-foreground">Subreddit Type</Label>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { value: "generalist", label: "Generalist Megahub" },
+                  { value: "body-specific", label: "Body/Attribute Specific" },
+                  { value: "kink-specific", label: "Kink/Activity Specific" },
+                  { value: "aesthetic", label: "Aesthetic/Subculture" },
+                ] as const
+              ).map((option: { value: string; label: string }) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      subredditType: option.value as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
+                    }))
+                  }
+                  className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                    formData.subredditType === option.value
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border bg-background text-muted-foreground hover:border-muted-foreground"
+                  }`}
+                  disabled={isGenerating}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        formData.subredditType === option.value ? "border-primary" : "border-border"
+                      }`}
+                    >
+                      {formData.subredditType === option.value && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                    <span className="text-sm">{option.label}</span>
                   </div>
-                  <span className="text-sm">{option.label}</span>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="context" className="text-foreground">
+              Visual Context
+            </Label>
+            <Textarea
+              id="context"
+              placeholder="e.g., cozy bedroom, beach at sunset, gym workout"
+              value={formData.visualContext}
+              onChange={(e) => handleChange(e, "visualContext")}
+              className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[80px]"
+              disabled={isGenerating}
+            />
+          </div>
+        </>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="context" className="text-foreground">
-          Visual Context
-        </Label>
-        <Textarea
-          id="context"
-          placeholder="e.g., cozy bedroom, beach at sunset, gym workout"
-          value={formData.visualContext}
-          onChange={(e) => handleChange(e, "visualContext")}
-          className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[80px]"
-          disabled={isGenerating}
-        />
-      </div>
-
-      <div className="space-y-3 border border-border rounded-lg p-4">
+      <div className="space-y-3 border border-border rounded-lg p-4 max-w-xs">
         <Label className="text-foreground">Degen Scale</Label>
         <div className="space-y-2">
           <Slider
@@ -194,22 +207,22 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="mood" className="text-foreground">
-          Caption Mood
-        </Label>
-        <Input
-          id="mood"
-          placeholder="e.g., playful, seductive, confident, shy"
-          value={formData.captionMood}
-          onChange={(e) => handleChange(e, "captionMood")}
-          className="bg-background border-border text-foreground placeholder:text-muted-foreground"
-          disabled={isGenerating}
-        />
-      </div>
-
       {formData.mode === "advanced" && (
         <>
+          <div className="space-y-2">
+            <Label htmlFor="mood" className="text-foreground">
+              Caption Mood
+            </Label>
+            <Input
+              id="mood"
+              placeholder="e.g., playful, seductive, confident, shy"
+              value={formData.captionMood}
+              onChange={(e) => handleChange(e, "captionMood")}
+              className="bg-background border-border text-foreground placeholder:text-muted-foreground"
+              disabled={isGenerating}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="rules" className="text-foreground">
               Rules
@@ -224,18 +237,29 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="creativeStyle" className="text-foreground">
-              Creative Style
-            </Label>
-            <Input
-              id="creativeStyle"
-              placeholder="e.g., poetic, casual, flirty, mysterious"
+          <div className="space-y-3">
+            <Label className="text-foreground">Creative Style</Label>
+            <RadioGroup
               value={formData.creativeStyle}
-              onChange={(e) => handleChange(e, "creativeStyle")}
-              className="bg-background border-border text-foreground placeholder:text-muted-foreground"
+              onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
+              className="space-x-2 flex"
               disabled={isGenerating}
-            />
+            >
+              {(
+                [
+                  { value: "grounded", label: "Grounded Scenario" },
+                  { value: "fantasy", label: "Fantasy / Roleplay" },
+                  { value: "kink", label: "Kink-Specific" },
+                ] as const
+              ).map((option) => (
+                <div key={option.value} className="flex items-center space-x-2">
+                  <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-border" />
+                  <Label htmlFor={`style-${option.value}`} className="text-foreground font-normal cursor-pointer">
+                    {option.label}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
           </div>
         </>
       )}

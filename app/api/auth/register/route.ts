@@ -1,38 +1,57 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import bcrypt from "bcryptjs"
 import { query } from "@/lib/db"
-import { hashPassword, signToken } from "@/lib/auth"
+import { supabase } from "@/lib/supabase"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
 
+    
     if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
+    
+    const existingUser = await query("SELECT id, email_verified FROM users WHERE email = ?", [email])
+
+    if (existingUser.length > 0) {
+      if (!existingUser[0].email_verified) {
+        return NextResponse.json(
+          { error: "Email already registered but not verified. Please check your email for the verification link." },
+          { status: 400 },
+        )
+      }
+      return NextResponse.json({ error: "Email already registered" }, { status: 400 })
     }
 
-    const existingUsers = await query<any[]>("SELECT id FROM users WHERE email = ?", [email])
-
-    if (existingUsers.length > 0) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 })
-    }
-
-    const hashedPassword = await hashPassword(password)
-    const result = await query<any>("INSERT INTO users (email, password) VALUES (?, ?)", [email, hashedPassword])
-
-    const userId = result.insertId
-
-    const token = signToken({ userId, email })
-
-    return NextResponse.json({
-      token,
-      user: { id: userId, email },
+    const { data: supabaseUser, error: supabaseError } = await supabase.auth.signUp({
+      email,
+      password,
     })
-  } catch (error: any) {
-    console.error("Register error:", error)
-    return NextResponse.json({ error: "Failed to register user" }, { status: 500 })
+
+    if (supabaseError) {
+      console.error("Supabase signup error:", supabaseError)
+      return NextResponse.json({ error: "Failed to create account" }, { status: 500 })
+    }
+
+    
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    const result = await query(
+      "INSERT INTO users (email, password, email_verified, supabase_user_id) VALUES (?, ?, ?, ?)",
+      [email, hashedPassword, false, supabaseUser.user?.id],
+    )
+
+    return NextResponse.json(
+      {
+        message: "Registration successful! Please check your email to verify your account.",
+        userId: result.insertId,
+      },
+      { status: 201 },
+    )
+  } catch (error) {
+    console.error("Registration error:", error)
+    return NextResponse.json({ error: "Registration failed" }, { status: 500 })
   }
 }

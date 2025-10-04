@@ -5,21 +5,21 @@ import { verifyToken } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("[v0] GET /api/posts - Starting request")
+    console.log("GET /api/posts - Starting request")
 
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) {
-      console.log("[v0] No token provided")
+      console.log("No token provided")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const payload = verifyToken(token)
     if (!payload) {
-      console.log("[v0] Invalid token")
+      console.log("Invalid token")
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
-    console.log("[v0] User authenticated:", payload.userId)
+    console.log("User authenticated:", payload.userId)
 
     
     const posts = await query(
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       [payload.userId],
     )
 
-    console.log("[v0] Query successful, found", (posts as any[]).length, "rows")
+    console.log("Query successful, found", (posts as any[]).length, "rows")
 
     
     const postsMap = new Map()
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ posts: Array.from(postsMap.values()) })
   } catch (error: any) {
-    console.error("[v0] Error fetching posts:", error)
-    console.error("[v0] Error details:", {
+    console.error("Error fetching posts:", error)
+    console.error("Error details:", {
       message: error.message,
       code: error.code,
       sqlMessage: error.sqlMessage,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error("[v0] Error creating post:", error)
+    console.error("Error creating post:", error)
     return NextResponse.json({ error: error.message || "Failed to create post" }, { status: 500 })
   }
 }

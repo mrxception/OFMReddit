@@ -4,20 +4,51 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Menu, X } from "lucide-react"
+import { Menu, X, Sun, Moon } from "lucide-react"
+
+const getInitialUser = () => {
+  if (typeof window === "undefined") return null
+  try {
+    const token = localStorage.getItem("token")
+    const userData = localStorage.getItem("user")
+    if (token && userData) {
+      return JSON.parse(userData)
+    }
+  } catch (error) {
+    console.error("Failed to parse user data:", error)
+    localStorage.removeItem("user")
+    localStorage.removeItem("token")
+  }
+  return null
+}
 
 export default function Navigation() {
   const pathname = usePathname()
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<any>(getInitialUser())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<"light" | "dark">("light")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    const isDark = document.documentElement.classList.contains("dark")
+    setTheme(isDark ? "dark" : "light")
+  }, [])
 
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("token")
       const userData = localStorage.getItem("user")
       if (token && userData) {
-        setUser(JSON.parse(userData))
+        try {
+          setUser(JSON.parse(userData))
+        } catch (error) {
+          console.error("Failed to parse user data:", error)
+          localStorage.removeItem("user")
+          localStorage.removeItem("token")
+          setUser(null)
+        }
       } else {
         setUser(null)
       }
@@ -41,6 +72,13 @@ export default function Navigation() {
     setUser(null)
     window.dispatchEvent(new Event("authChange"))
     router.push("/login")
+  }
+
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light"
+    setTheme(newTheme)
+    localStorage.setItem("theme", newTheme)
+    document.documentElement.classList.toggle("dark", newTheme === "dark")
   }
 
   return (
@@ -88,6 +126,21 @@ export default function Navigation() {
           </div>
 
           <div className="flex items-center gap-4">
+            {mounted && (
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
+                aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+                title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+              >
+                {theme === "light" ? (
+                  <Moon className="w-5 h-5 text-muted-foreground" />
+                ) : (
+                  <Sun className="w-5 h-5 text-muted-foreground" />
+                )}
+              </button>
+            )}
+
             {user ? (
               <>
                 <span className="hidden md:block text-sm text-muted-foreground truncate max-w-[150px]">

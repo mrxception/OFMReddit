@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       captionMood,
       rules,
       creativeStyle,
-      postId, 
+      postId,
     } = body
 
     if (!mode || !gender) {
@@ -119,7 +119,7 @@ Example:
       })
 
       if (response.status !== 429) break
-      console.log(`[v0] Rate limit hit, retrying (${attempt}/3)...`)
+      console.log(`Rate limit hit, retrying (${attempt}/3)...`)
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
     }
 
@@ -153,10 +153,8 @@ Example:
     }
 
     if (postId) {
-      
       await query("DELETE FROM captions WHERE post_id = ?", [postId])
 
-      
       for (const caption of captions) {
         await query("INSERT INTO captions (post_id, option_number, text) VALUES (?, ?, ?)", [
           postId,

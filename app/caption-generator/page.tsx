@@ -193,7 +193,7 @@ export default function CaptionGeneratorPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="flex flex-col lg:grid lg:grid-cols-[280px_1fr_380px] gap-0 min-h-[calc(100vh-73px)]">
+      <div className="flex flex-col lg:grid lg:grid-cols-[280px_1fr_480px] gap-0 min-h-[calc(100vh-73px)]">
         <div className="lg:border-r lg:border-border">
           <PostsList
             posts={posts}
