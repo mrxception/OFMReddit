@@ -149,18 +149,16 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       subredditType: option.value as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
                     }))
                   }
-                  className={`p-3 rounded-lg border-2 text-left transition-colors ${
-                    formData.subredditType === option.value
+                  className={`p-3 rounded-lg border-2 text-left transition-colors ${formData.subredditType === option.value
                       ? "border-primary bg-primary/10 text-foreground"
                       : "border-border bg-background text-muted-foreground hover:border-muted-foreground"
-                  }`}
+                    }`}
                   disabled={isGenerating}
                 >
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        formData.subredditType === option.value ? "border-primary" : "border-border"
-                      }`}
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.subredditType === option.value ? "border-primary" : "border-border"
+                        }`}
                     >
                       {formData.subredditType === option.value && <div className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
@@ -207,6 +205,31 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         </div>
       </div>
 
+      <div className="space-y-3">
+        <Label className="text-foreground">Creative Style</Label>
+        <RadioGroup
+          value={formData.creativeStyle}
+          onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
+          className="space-x-2 flex"
+          disabled={isGenerating}
+        >
+          {(
+            [
+              { value: "grounded", label: "Grounded Scenario" },
+              { value: "fantasy", label: "Fantasy / Roleplay" },
+              { value: "kink", label: "Kink-Specific" },
+            ] as const
+          ).map((option) => (
+            <div key={option.value} className="flex items-center space-x-2">
+              <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-border" />
+              <Label htmlFor={`style-${option.value}`} className="text-foreground font-normal cursor-pointer">
+                {option.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
       {formData.mode === "advanced" && (
         <>
           <div className="space-y-2">
@@ -235,31 +258,6 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               className="bg-background border-border text-foreground placeholder:text-muted-foreground"
               disabled={isGenerating}
             />
-          </div>
-
-          <div className="space-y-3">
-            <Label className="text-foreground">Creative Style</Label>
-            <RadioGroup
-              value={formData.creativeStyle}
-              onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
-              className="space-x-2 flex"
-              disabled={isGenerating}
-            >
-              {(
-                [
-                  { value: "grounded", label: "Grounded Scenario" },
-                  { value: "fantasy", label: "Fantasy / Roleplay" },
-                  { value: "kink", label: "Kink-Specific" },
-                ] as const
-              ).map((option) => (
-                <div key={option.value} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-border" />
-                  <Label htmlFor={`style-${option.value}`} className="text-foreground font-normal cursor-pointer">
-                    {option.label}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
           </div>
         </>
       )}
