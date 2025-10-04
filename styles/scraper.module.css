@@ -118,6 +118,9 @@
   background: var(--color-muted);
   font-weight: 600;
   color: var(--color-foreground);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .rowhead {
@@ -199,4 +202,28 @@
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+.tableContainer {
+  max-height: 440px;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.tableContainer::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tableContainer::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+.tableContainer::-webkit-scrollbar-thumb {
+  background: var(--color-muted-foreground);
+  border-radius: var(--radius-sm);
+}
+
+.tableContainer::-webkit-scrollbar-thumb:hover {
+  background: var(--color-foreground);
 }

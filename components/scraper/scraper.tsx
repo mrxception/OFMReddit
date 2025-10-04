@@ -51,7 +51,7 @@ export default function Scraper() {
       fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}`, {
         method: "DELETE",
         keepalive: true,
-      }).catch(() => {})
+      }).catch(() => { })
     }
     window.addEventListener("beforeunload", cleanup)
     return () => cleanup()
@@ -102,25 +102,25 @@ export default function Scraper() {
     setSpanDays(null)
 
     let stopPoll = false
-    ;(async function poll() {
-      while (!stopPoll) {
-        try {
-          const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, {
-            cache: "no-store",
-          })
-          if (r.ok) {
-            const p = await r.json()
-            const total = p.total || limit || 1
-            const fetched = p.fetched || 0
-            const frac = Math.max(0, Math.min(1, total ? fetched / total : 0))
-            setProgress(frac)
-            setStatus(`${p.phase || "Working…"} ${fetched}/${total}`)
-            if (p.done && frac < 1) setProgress(1)
-          }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 400))
-      }
-    })()
+      ; (async function poll() {
+        while (!stopPoll) {
+          try {
+            const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, {
+              cache: "no-store",
+            })
+            if (r.ok) {
+              const p = await r.json()
+              const total = p.total || limit || 1
+              const fetched = p.fetched || 0
+              const frac = Math.max(0, Math.min(1, total ? fetched / total : 0))
+              setProgress(frac)
+              setStatus(`${p.phase || "Working…"} ${fetched}/${total}`)
+              if (p.done && frac < 1) setProgress(1)
+            }
+          } catch { }
+          await new Promise((r) => setTimeout(r, 400))
+        }
+      })()
 
     try {
       const res = await fetch("/api/scrape", {
@@ -129,7 +129,7 @@ export default function Scraper() {
         body: JSON.stringify({
           username,
           limit,
-          dateRange, 
+          dateRange,
           inclSubs: inclSubs ? 1 : 0,
           inclVote: inclVote ? 1 : 0,
           inclComm: inclComm ? 1 : 0,
@@ -146,7 +146,7 @@ export default function Scraper() {
         try {
           const j = await res.json()
           reason = j?.error || reason
-        } catch {}
+        } catch { }
         throw new Error(reason || `HTTP ${res.status}`)
       }
 
@@ -158,7 +158,8 @@ export default function Scraper() {
           : null,
       )
 
-      setPreview(Array.isArray(payload.previewTop10) ? payload.previewTop10 : [])
+      
+      setPreview(Array.isArray(payload.preview) ? payload.preview : [])
 
       const staged = Array.isArray(payload.files) ? payload.files : payload.id ? [payload] : []
 
@@ -171,7 +172,7 @@ export default function Scraper() {
         text:
           staged.length === 0
             ? "No files were staged."
-            : `File${staged.length > 1 ? "s" : ""} staged: ${staged.map((f: { id: string; filename: string }) => f.filename).join(", ")}`,
+            : `File${staged.length > 1 ? "s" : ""}: ${staged.map((f: { id: string; filename: string }) => f.filename).join(", ")}`,
       })
     } catch (err: any) {
       setProgress(0)
@@ -332,8 +333,8 @@ export default function Scraper() {
             <div className={s.bar} aria-hidden="true">
               <i id="progress" ref={progRef} />
             </div>
-            <div id="status" className={s.hint}>
-              {status}
+            <div id="status" className={`${s.hint} flex justify-center`}>
+              <span>{status}</span>
             </div>
           </form>
         </div>
@@ -343,15 +344,17 @@ export default function Scraper() {
             <div>
               <div className="mb-4">
                 <h2 className="text-lg md:text-xl font-bold text-foreground">
-                  Top 10 Subreddits by average upvotes per post
-                  {username ? ` for u/${username}` : ""}
+                  Subreddit Performance {username ? ` for u/${username}` : ""}
                 </h2>
+                <p className={s.hint}>
+                  Displaying {previewWith30.length} subreddits (scroll to view all)
+                </p>
               </div>
-              <div className="overflow-x-auto">
+              <div className={`${s.tableContainer} overflow-x-auto overflow-y-auto`}>
                 <div
                   className={s.excel}
                   role="table"
-                  aria-label="Top 10 Subreddit Posts (preview)"
+                  aria-label="Subreddit Performance (all)"
                   style={{
                     gridTemplateColumns: `48px repeat(${cols.length}, minmax(140px, 1fr))`,
                     minWidth: "800px",
@@ -372,35 +375,31 @@ export default function Scraper() {
                     </div>
                   ))}
 
-                  {Array.from({ length: 10 }).map((_, r: number) => {
-                    const row = previewWith30[r]
-                    return (
-                      <React.Fragment key={`row-${r}`}>
-                        <div className={`${s.cell} ${s.rowhead}`} role="rowheader">
-                          {r + 1}
-                        </div>
-
-                        <div className={s.cell} role="cell">
-                          {row?.Subreddit ?? ""}
-                        </div>
-                        <div className={s.cell} role="cell">
-                          {row?.Total_Posts ?? ""}
-                        </div>
-                        <div className={s.cell} role="cell">
-                          {row?.Avg_Upvotes_Per_Post ?? ""}
-                        </div>
-                        <div className={s.cell} role="cell">
-                          {row?.Avg_Comments_Per_Post != null ? Math.round(row.Avg_Comments_Per_Post) : ""}
-                        </div>
-                        <div className={s.cell} role="cell">
-                          {row?.Posts_Per_30Days != null ? row.Posts_Per_30Days : ""}
-                        </div>
-                        <div className={s.cell} role="cell">
-                          {row?.LastDateTimeUTC ? fmtUTC(row.LastDateTimeUTC) : ""}
-                        </div>
-                      </React.Fragment>
-                    )
-                  })}
+                  {previewWith30.map((row: any, r: number) => (
+                    <React.Fragment key={`row-${r}`}>
+                      <div className={`${s.cell} ${s.rowhead}`} role="rowheader">
+                        {r + 1}
+                      </div>
+                      <div className={s.cell} role="cell">
+                        {row?.Subreddit ?? ""}
+                      </div>
+                      <div className={s.cell} role="cell">
+                        {row?.Total_Posts ?? ""}
+                      </div>
+                      <div className={s.cell} role="cell">
+                        {row?.Avg_Upvotes_Per_Post ?? ""}
+                      </div>
+                      <div className={s.cell} role="cell">
+                        {row?.Avg_Comments_Per_Post != null ? Math.round(row.Avg_Comments_Per_Post) : ""}
+                      </div>
+                      <div className={s.cell} role="cell">
+                        {row?.Posts_Per_30Days != null ? row.Posts_Per_30Days : ""}
+                      </div>
+                      <div className={s.cell} role="cell">
+                        {row?.LastDateTimeUTC ? fmtUTC(row.LastDateTimeUTC) : ""}
+                      </div>
+                    </React.Fragment>
+                  ))}
                 </div>
               </div>
             </div>

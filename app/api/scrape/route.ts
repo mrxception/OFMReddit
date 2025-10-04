@@ -321,7 +321,7 @@ export async function POST(request: NextRequest) {
     const maxDate = Math.max(...allDates)
     const datasetSpanDays = Math.ceil((maxDate - minDate) / (60 * 60 * 24))
 
-    const previewTop10 = subredditStats.slice(0, 10)
+    const previewTop10 = subredditStats.slice(0, 10) 
 
     sessions.set(sid, {
       phase: "Generating Excel file…",
@@ -385,7 +385,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       datasetSpanDays,
-      previewTop10,
+      previewTop10, 
+      preview: subredditStats, 
       files: [{ id: fileId, filename }],
     })
   } catch (error: any) {
