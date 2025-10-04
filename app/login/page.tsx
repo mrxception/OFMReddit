@@ -44,7 +44,7 @@ export default function LoginPage() {
       if (data.token && data.user) {
         localStorage.setItem("token", data.token)
         localStorage.setItem("user", JSON.stringify(data.user))
-        // Trigger auth change event for navigation to update
+        
         window.dispatchEvent(new Event("authChange"))
       }
 
