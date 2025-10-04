@@ -27,6 +27,7 @@ export type FormData = {
   captionMood: string
   rules: string
   creativeStyle: string
+  isInteractive: false
 }
 
 export default function CaptionGeneratorPage() {

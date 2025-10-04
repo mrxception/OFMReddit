@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       rules,
       creativeStyle,
       postId,
+      isInteractive, // Added new field
     } = body
 
     if (!mode || !gender) {
@@ -50,6 +51,7 @@ Mood: ${captionMood || "seductive"}
 Creative style: ${creativeStyle || "not specified"}
 
 Generate 5 different caption options that are ${degenScale === 1 ? "suggestive" : degenScale === 2 ? "direct" : "explicit"}, seductive, and engaging for Reddit. Each caption should be 150–200 characters long.
+${isInteractive ? "Include an interactive/clickbait style, using questions (e.g., 'Would you introduce me to your parents?') to encourage comments like 'yes' or 'no'." : ""}
 
 Return ONLY a valid JSON array of 5 objects, each with 'option' (number from 1 to 5) and 'text' (string) fields. Do not include any text before or after the JSON array. Ensure the JSON is parseable without errors.
 Example:
@@ -73,6 +75,7 @@ Creative style: ${creativeStyle || "not specified"}
 Explicitness level: ${degenScale === 1 ? "suggestive" : degenScale === 2 ? "direct" : "explicit"}
 
 Generate 5 different caption options that are seductive, match the mood and explicitness level, are appropriate for the specified subreddit type, follow the creative style if specified, and are 150–200 characters long.
+${isInteractive ? "Include an interactive/clickbait style, using questions (e.g., 'Would you introduce me to your parents?') to encourage comments like 'yes' or 'no'." : ""}
 
 Return ONLY a valid JSON array of 5 objects, each with 'option' (number from 1 to 5) and 'text' (string) fields. Do not include any text before or after the JSON array. Ensure the JSON is parseable without errors.
 Example:
