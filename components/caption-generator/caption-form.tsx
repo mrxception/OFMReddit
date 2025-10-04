@@ -106,7 +106,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
       <div className="border-2 border-border rounded-lg p-5 bg-card">
         <h3 className="text-lg font-semibold text-foreground mb-4">Creator Features</h3>
-        <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
+        <div className={formData.mode === "keywords" ? "space-y-4" : "grid grid-cols-[1fr_auto] gap-4 items-start"}>
           <div className="space-y-2">
             <Label htmlFor="features" className="text-foreground">
               {formData.mode === "keywords" ? "Keywords" : "Niche/Physical Features"}
@@ -154,7 +154,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         </div>
       </div>
 
-      <div className="space-y-3 border border-border rounded-lg p-4 max-w-xs">
+      <div className="space-y-3 border border-border rounded-lg p-4 max-w-xs mx-auto">
         <Label className="text-foreground text-lg">Degen Scale</Label>
         <div className="space-y-2">
           <Slider
@@ -282,8 +282,6 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               disabled={isGenerating}
             />
           </div>
-
-
         </>
       )}
 
