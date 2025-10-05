@@ -20,7 +20,7 @@ export function PostsList({ posts, selectedPostId, onSelectPost, onAddPost }: Po
         </h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex flex-col">
         {posts.map((post) => (
           <button
             key={post.id}

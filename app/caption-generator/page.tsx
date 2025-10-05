@@ -28,6 +28,7 @@ export type FormData = {
   rules: string
   creativeStyle: string
   isInteractive: false
+  subredditName: string
 }
 
 export default function CaptionGeneratorPage() {
