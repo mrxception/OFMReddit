@@ -100,7 +100,7 @@ export function PostsList({ posts, selectedPostId, onSelectPost, onAddPost, onRe
         </h2>
       </div>
 
-      <div className="flex flex-col flex-1 overflow-y-auto">
+      <div className="flex flex-col overflow-y-auto">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={posts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
             {posts.map((post) => (
@@ -115,7 +115,7 @@ export function PostsList({ posts, selectedPostId, onSelectPost, onAddPost, onRe
         </DndContext>
       </div>
 
-      <div className="p-4 border-t border-border mt-auto">
+      <div className="p-4 border-t border-border">
         <Button onClick={onAddPost} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
           <Plus className="w-4 h-4 mr-2" />
           Add New Post
