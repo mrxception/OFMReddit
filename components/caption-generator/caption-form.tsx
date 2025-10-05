@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Switch } from "@/components/ui/switch"
 import type { FormData } from "@/app/caption-generator/page"
 
 type CaptionFormProps = {
@@ -30,7 +29,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     degenScale: 2,
     captionMood: "",
     rules: "",
-    creativeStyle: "",
+    creativeStyle: "fantasy",
     isInteractive: false,
     subredditName: "",
   })
@@ -47,7 +46,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
           gender: gender || prev.gender,
         }))
       } catch (error) {
-        console.error("[v0] Failed to load creator features:", error)
+        console.error("Failed to load creator features:", error)
       }
     }
   }, [])
@@ -64,6 +63,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     const errors: Partial<Record<keyof FormData, string>> = {}
     if (!formData.gender) {
       errors.gender = "Gender is required"
+    }
+    if (formData.mode === "advanced" && !formData.subredditName.trim() && !formData.subredditType) {
+      errors.subredditType = "Subreddit Category is required when Subreddit Name is not provided"
     }
     setFormErrors(errors)
     console.log("CaptionForm formData:", formData, "formErrors:", errors)
@@ -87,7 +89,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
   }
 
   const handleToggleInteractive = (checked: boolean) => {
-    setFormData((prev) => ({ ...prev, isInteractive: checked } as FormData))
+    setFormData((prev) => ({ ...prev, isInteractive: checked }) as FormData)
   }
 
   return (
@@ -117,7 +119,10 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </TabsTrigger>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
-                  <p>Provide keywords (e.g., niche, visual context, mood), and the AI will automatically infer the best caption strategy for your post.</p>
+                  <p>
+                    Provide keywords (e.g., niche, visual context, mood), and the AI will automatically infer the best
+                    caption strategy for your post.
+                  </p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -135,7 +140,10 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </TabsTrigger>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
-                  <p>Provides maximum strategic control. You define the subreddit context, visual details, and mood to receive highly tailored captions.</p>
+                  <p>
+                    Provides maximum strategic control. You define the subreddit context, visual details, and mood to
+                    receive highly tailored captions.
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TabsList>
@@ -153,7 +161,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </Label>
                   <Input
                     id="features"
-                    placeholder="e.g. cute Japanese girl anime showing natural boobs in bedroom"
+                    placeholder="e.g. cute, Japanese girl, anime, big natural boobs"
                     value={formData.physicalFeatures}
                     onChange={(e) => handleChange(e, "physicalFeatures")}
                     className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
@@ -260,9 +268,15 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <TooltipContent side="right" className="max-w-xs">
                   <p>Adjusts the intensity of the caption's tone.</p>
                   <ul className="list-disc pl-5 mt-2">
-                    <li><strong>Suggestive</strong>: Subtle and hinting at content.</li>
-                    <li><strong>Direct</strong>: Clear and straightforward language.</li>
-                    <li><strong>Explicit</strong>: Bold and unambiguous phrasing.</li>
+                    <li>
+                      <strong>Suggestive</strong>: Subtle and hinting at content.
+                    </li>
+                    <li>
+                      <strong>Direct</strong>: Clear and straightforward language.
+                    </li>
+                    <li>
+                      <strong>Explicit</strong>: Bold and unambiguous phrasing.
+                    </li>
                   </ul>
                 </TooltipContent>
               </Tooltip>
@@ -274,9 +288,18 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   <TooltipContent side="right" className="max-w-xs">
                     <p>Optionally refines the caption's narrative to focus on a specific type of scenario.</p>
                     <ul className="list-disc pl-5 mt-2">
-                      <li><strong>Grounded Scenario</strong>: Generates captions describing a plausible, real-world scenario to feel authentic and relatable.</li>
-                      <li><strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view experience by framing the content as a fantasy scenario.</li>
-                      <li><strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow, kink-focused audience to signal 'insider' knowledge.</li>
+                      <li>
+                        <strong>Grounded Scenario</strong>: Generates captions describing a plausible, real-world
+                        scenario to feel authentic and relatable.
+                      </li>
+                      <li>
+                        <strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view experience
+                        by framing the content as a fantasy scenario.
+                      </li>
+                      <li>
+                        <strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow, kink-focused
+                        audience to signal 'insider' knowledge.
+                      </li>
                     </ul>
                   </TooltipContent>
                 </Tooltip>
@@ -294,8 +317,15 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     ] as const
                   ).map((option) => (
                     <div key={option.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={option.value} id={`style-${option.value}`} className="border-[var(--border)] scale-125" />
-                      <Label htmlFor={`style-${option.value}`} className="text-[var(--card-foreground)] font-normal cursor-pointer text-base">
+                      <RadioGroupItem
+                        value={option.value}
+                        id={`style-${option.value}`}
+                        className="border-[var(--border)] scale-125"
+                      />
+                      <Label
+                        htmlFor={`style-${option.value}`}
+                        className="text-[var(--card-foreground)] font-normal cursor-pointer"
+                      >
                         {option.label}
                       </Label>
                     </div>
@@ -311,11 +341,15 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Label htmlFor="subredditName" className="text-[var(--card-foreground)]">
-                        Subreddit Name (Optional)
+                        Subreddit Name{" "}
+                        <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
                       </Label>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-xs">
-                      <p>Enter the subreddit name for tailored captions (e.g., r/example). Leave blank to use Subreddit Type instead.</p>
+                      <p>
+                        Enter the subreddit name for tailored captions (e.g., r/example). This will auto-determine the
+                        subreddit type.
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                   <Input
@@ -330,15 +364,53 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <div className="space-y-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Label className="text-[var(--card-foreground)]">Subreddit Type (Optional)</Label>
+                      <Label className="text-[var(--card-foreground)]">
+                        Subreddit Category{" "}
+                        {formData.subredditName.trim() === "" && (
+                          <span className="text-sm font-normal text-red-500">*</span>
+                        )}
+                      </Label>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-xs">
-                      <p>Select a general category if you prefer not to specify a subreddit name.</p>
+                      <p className="mb-2">Determines the caption strategy based on the subreddit type.</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>
+                          <strong>Generalist</strong>: For large, broad-appeal subreddits, e.g. r/slutsofsnapchat,
+                          r/nude_selfie
+                        </li>
+                        <li>
+                          <strong>Body/Attribute</strong>: Focused on specific physical traits or demographics, e.g.
+                          r/boobs, r/latinas, r/foreverteens
+                        </li>
+                        <li>
+                          <strong>Kink/Activity</strong>: Defined by a specific fetish, activity, or scenario, e.g.
+                          r/daddysbrokentoys, r/twerking
+                        </li>
+                        <li>
+                          <strong>Aesthetic/Subculture</strong>: For subcultures with a strong identity, like Goth or
+                          Cosplay, r/gymgirls, r/bigtiddygothgf
+                        </li>
+                      </ul>
                     </TooltipContent>
                   </Tooltip>
-                  <Select value={formData.subredditType} onValueChange={(v) => setFormData((prev) => ({ ...prev, subredditType: v as "generalist" | "body-specific" | "kink-specific" | "aesthetic" }))} disabled={isGenerating}>
-                    <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--foreground)]">
-                      <SelectValue placeholder="Select Type" />
+                  <Select
+                    value={formData.subredditType}
+                    onValueChange={(v) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        subredditType: v as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
+                      }))
+                    }
+                    disabled={isGenerating || formData.subredditName.trim() !== ""}
+                  >
+                    <SelectTrigger
+                      className={
+                        formData.subredditName.trim() !== ""
+                          ? "w-full opacity-50 cursor-not-allowed bg-[var(--card)] border-[var(--border)] text-[var(--foreground)]"
+                          : "w-full bg-[var(--card)] border-[var(--border)] text-[var(--foreground)]"
+                      }
+                    >
+                      <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="generalist">Generalist Megahub</SelectItem>
@@ -347,6 +419,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       <SelectItem value="aesthetic">Aesthetic/Subculture</SelectItem>
                     </SelectContent>
                   </Select>
+                  {formErrors.subredditType && <p className="text-red-500 text-sm">{formErrors.subredditType}</p>}
                 </div>
               </div>
             </div>
@@ -359,7 +432,11 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </Label>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
-                  <p>Describe the main action, setting, or focus of the content. This is not for a literal description, but to provide creative inspiration for the captions. E.g. showering, sitting on gamer chair showing boobs, titty reveal in the garden.</p>
+                  <p>
+                    Describe the main action, setting, or focus of the content. This is not for a literal description,
+                    but to provide creative inspiration for the captions. E.g. showering, sitting on gamer chair showing
+                    boobs, titty reveal in the garden.
+                  </p>
                 </TooltipContent>
               </Tooltip>
               <Textarea
@@ -416,26 +493,50 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
           </>
         )}
 
-        <div className="flex items-center space-x-2 mb-4">
+        <div className="flex items-center space-x-2 my-8">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Switch
-                checked={formData.isInteractive}
-                onCheckedChange={handleToggleInteractive}
-                disabled={isGenerating}
-                className="data-[state=checked]:bg-red-600 bg-gray-700"
-              />
+              <div
+                className={`relative w-16 h-7 rounded-full cursor-pointer transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"} ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+                onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
+                role="switch"
+                aria-checked={formData.isInteractive}
+                aria-disabled={isGenerating}
+              >
+                <span
+                  className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"}`}
+                />
+                <span
+                  className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"}`}
+                >
+                  ON
+                </span>
+                <span
+                  className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"}`}
+                >
+                  OFF
+                </span>
+              </div>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
-              <p>Enable to generate interactive/clickbait captions (e.g., 'Would you introduce me to your parents?') that encourage comments like 'yes' or 'no'.</p>
+              <p>
+                Enable to generate interactive/clickbait captions (e.g., 'Would you introduce me to your parents?') that
+                encourage comments like 'yes' or 'no'.
+              </p>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Label className="text-[var(--card-foreground)] text-lg">Interactive/Clickbait Captions (beware some subreddits do not allow questions)</Label>
+              <Label className="text-[var(--card-foreground)] text-lg">
+                Interactive/Clickbait Captions{" "}
+                <span className="text-sm font-normal">(beware some subreddits do not allow questions)</span>
+              </Label>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
-              <p>Enabling 'Interactive/Clickbait Captions' means all caption options for this specific post will be clickbait/interactive.</p>
+              <p>
+                Enabling 'Interactive/Clickbait Captions' means all caption options for this specific post will be
+                clickbait/interactive.
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>
