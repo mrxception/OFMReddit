@@ -4,10 +4,14 @@ import { useEffect, useRef, useState } from "react"
 import React from "react"
 import s from "@/styles/scraper.module.css"
 
+import Form from "./form"
+import ExcelSheetSection from "./excel-sheet-section"
+import KPI from "./kpi-section"
+
 export default function Scraper() {
   const [username, setUsername] = useState("")
   const [dateRange, setDateRange] = useState("all")
-  const [limit, setLimit] = useState(1000)
+  const [limit, setLimit] = useState(100)
   const [inclSubs, setInclSubs] = useState(false)
   const [inclVote, setInclVote] = useState(false)
   const [inclComm, setInclComm] = useState(false)
@@ -158,7 +162,6 @@ export default function Scraper() {
           : null,
       )
 
-      
       setPreview(Array.isArray(payload.preview) ? payload.preview : [])
 
       const staged = Array.isArray(payload.files) ? payload.files : payload.id ? [payload] : []
@@ -215,224 +218,54 @@ export default function Scraper() {
           <p className="text-sm md:text-base text-muted-foreground mb-6">
             Enter the Reddit username you want to analyze for a quantitative performance comparison across subreddits.
           </p>
-          <form onSubmit={onSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div>
-                <label htmlFor="username" className="block text-sm font-semibold text-foreground mb-2">
-                  Reddit Username
-                </label>
-                <input
-                  className={s.csvinput}
-                  id="username"
-                  name="username"
-                  placeholder="e.g. spez"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
 
-              <div>
-                <label htmlFor="dateRange" className="block text-sm font-semibold text-foreground mb-2">
-                  Date Range
-                </label>
-                <select
-                  className={s.csvinput}
-                  id="dateRange"
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                >
-                  <option value="all">All Time</option>
-                  <option value="year">Past Year</option>
-                  <option value="month">Past Month</option>
-                  <option value="week">Past Week</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="limit" className="block text-sm font-semibold text-foreground mb-2">
-                  Max posts (1–1000)
-                </label>
-                <input
-                  className={s.csvinput}
-                  id="limit"
-                  name="limit"
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={limit}
-                  onChange={(e) => setLimit(Number(e.target.value || 1000))}
-                />
-              </div>
-
-              <div className="sm:col-span-2 lg:col-span-1 flex items-end">
-                <button className={`${s.btn} w-full`} type="submit" disabled={busy}>
-                  {busy ? "Preparing…" : "Run Analysis"}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className={s.setinput}
-                  checked={inclVote}
-                  onChange={(e) => setInclVote(e.target.checked)}
-                />
-                <span className="text-sm text-foreground">Total Upvotes</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className={s.setinput}
-                  checked={inclSubs}
-                  onChange={(e) => setInclSubs(e.target.checked)}
-                />
-                <span className="text-sm text-foreground">Subreddit member count</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className={s.setinput}
-                  checked={inclComm}
-                  onChange={(e) => setInclComm(e.target.checked)}
-                />
-                <span className="text-sm text-foreground">Total Comments</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className={s.setinput}
-                  checked={inclPER}
-                  onChange={(e) => setInclPER(e.target.checked)}
-                />
-                <span className="text-sm text-foreground">Performance efficiency rating</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className={s.setinput}
-                  checked={inclExtraFreq}
-                  onChange={(e) => setInclExtraFreq(e.target.checked)}
-                />
-                <span className="text-sm text-foreground">Additional Post Frequency Data</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className={s.setinput}
-                  checked={inclMed}
-                  onChange={(e) => setInclMed(e.target.checked)}
-                />
-                <span className="text-sm text-foreground">Median average upvotes per post</span>
-              </label>
-            </div>
-
-            <div className={s.bar} aria-hidden="true">
-              <i id="progress" ref={progRef} />
-            </div>
-            <div id="status" className={`${s.hint} flex justify-center`}>
-              <span>{status}</span>
-            </div>
-          </form>
+          <Form
+            onSubmit={onSubmit}
+            progRef={progRef}
+            status={status}
+            busy={busy}
+            username={username}
+            setUsername={setUsername}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            limit={limit}
+            setLimit={setLimit}
+            inclVote={inclVote}
+            setInclVote={setInclVote}
+            inclSubs={inclSubs}
+            setInclSubs={setInclSubs}
+            inclComm={inclComm}
+            setInclComm={setInclComm}
+            inclPER={inclPER}
+            setInclPER={setInclPER}
+            inclExtraFreq={inclExtraFreq}
+            setInclExtraFreq={setInclExtraFreq}
+            inclMed={inclMed}
+            setInclMed={setInclMed}
+            s={s}
+          />
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4 md:p-6">
-          {hasTop10 && (
-            <div>
-              <div className="mb-4">
-                <h2 className="text-lg md:text-xl font-bold text-foreground">
-                  Subreddit Performance {username ? ` for u/${username}` : ""}
-                </h2>
-                <p className={s.hint}>
-                  Displaying {previewWith30.length} subreddits (scroll to view all)
-                </p>
-              </div>
-              <div className={`${s.tableContainer} overflow-x-auto overflow-y-auto`}>
-                <div
-                  className={s.excel}
-                  role="table"
-                  aria-label="Subreddit Performance (all)"
-                  style={{
-                    gridTemplateColumns: `48px repeat(${cols.length}, minmax(140px, 1fr))`,
-                    minWidth: "800px",
-                  }}
-                >
-                  <div className={`${s.cell} ${s.corner}`} aria-hidden="true">
-                    {" "}
-                  </div>
+        <KPI
+          rows={preview}
+          dateRange={dateRange}
+          limit={limit}
+          inclPER={inclPER}
+        />
 
-                  {cols.map((c: { key: string; label: string }, i: number) => (
-                    <div
-                      key={`col-${c.key}`}
-                      className={`${s.cell} ${s.colhead}`}
-                      role="columnheader"
-                      aria-colindex={i + 1}
-                    >
-                      {c.label}
-                    </div>
-                  ))}
-
-                  {previewWith30.map((row: any, r: number) => (
-                    <React.Fragment key={`row-${r}`}>
-                      <div className={`${s.cell} ${s.rowhead}`} role="rowheader">
-                        {r + 1}
-                      </div>
-                      <div className={s.cell} role="cell">
-                        {row?.Subreddit ?? ""}
-                      </div>
-                      <div className={s.cell} role="cell">
-                        {row?.Total_Posts ?? ""}
-                      </div>
-                      <div className={s.cell} role="cell">
-                        {row?.Avg_Upvotes_Per_Post ?? ""}
-                      </div>
-                      <div className={s.cell} role="cell">
-                        {row?.Avg_Comments_Per_Post != null ? Math.round(row.Avg_Comments_Per_Post) : ""}
-                      </div>
-                      <div className={s.cell} role="cell">
-                        {row?.Posts_Per_30Days != null ? row.Posts_Per_30Days : ""}
-                      </div>
-                      <div className={s.cell} role="cell">
-                        {row?.LastDateTimeUTC ? fmtUTC(row.LastDateTimeUTC) : ""}
-                      </div>
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div id="history" className={s.history} aria-live="polite" ref={historyRef}>
-            {files.length === 0 ? (
-              <div className={s.hint}>No files in this session yet.</div>
-            ) : (
-              files.map((f: { id: string; filename: string }) => (
-                <div key={f.id} className={s.histrow}>
-                  <span className={s.fname} title={f.filename}>
-                    {f.filename}
-                  </span>
-                  <span className={s.flex1} />
-                  <button type="button" className={s.mini} onClick={() => handleDownload(f.id, f.filename)}>
-                    Download
-                  </button>
-                  <button type="button" className={`${s.mini} ${s.subtle}`} onClick={() => handleDelete(f.id)}>
-                    Delete
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          {msg && <div className={`${s.alert} ${msg.type === "ok" ? s.ok : s.err}`}>{msg.text}</div>}
-
-          <p className={s.hint}>
-            Files are stored temporarily in memory for this page session and auto-expire after ~10 minutes or when you
-            close/reload the page.
-          </p>
-        </div>
+        <ExcelSheetSection
+          hasTop10={hasTop10}
+          username={username}
+          cols={cols}
+          previewWith30={previewWith30}
+          fmtUTC={fmtUTC}
+          files={files}
+          historyRef={historyRef}
+          handleDownload={handleDownload}
+          handleDelete={handleDelete}
+          msg={msg}
+          s={s}
+        />
       </div>
     </div>
   )
