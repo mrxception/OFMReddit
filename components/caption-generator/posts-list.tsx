@@ -94,12 +94,6 @@ export function PostsList({ posts, selectedPostId, onSelectPost, onAddPost, onRe
 
   return (
     <div className="bg-card border-r border-border flex flex-col h-full">
-      <div className="p-4 border-b border-border">
-        <h2 className="font-semibold text-sm text-muted-foreground mb-3">
-          {posts.find((p) => p.id === selectedPostId)?.name || "Select Post"}
-        </h2>
-      </div>
-
       <div className="flex flex-col overflow-y-auto">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={posts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
