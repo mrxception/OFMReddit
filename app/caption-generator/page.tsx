@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { CaptionForm } from "@/components/caption-generator/caption-form"
 import { PostsList } from "@/components/caption-generator/posts-list"
 import { CaptionResults } from "@/components/caption-generator/caption-results"
+import { AiBotStatus } from "@/components/caption-generator/ai-bot-status"
+import { useToast } from "@/hooks/use-toast"
 
 export type Post = {
   id: string
@@ -34,6 +36,7 @@ export type FormData = {
 
 export default function CaptionGeneratorPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [posts, setPosts] = useState<Post[]>([])
   const [selectedPostId, setSelectedPostId] = useState<string>("")
   const [isGenerating, setIsGenerating] = useState(false)
@@ -42,6 +45,7 @@ export default function CaptionGeneratorPage() {
   const [aiMessage, setAiMessage] = useState<string>(
     "Ready to generate seductive captions! Fill out the form to get started.",
   )
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const selectedPost = posts.find((p) => p.id === selectedPostId)
 
@@ -76,7 +80,7 @@ export default function CaptionGeneratorPage() {
           return
         }
 
-        const sortedPosts = [...data.posts].sort((a, b) => parseInt(a.id) - parseInt(b.id))
+        const sortedPosts = [...data.posts].sort((a, b) => Number.parseInt(a.id) - Number.parseInt(b.id))
         setPosts(sortedPosts)
         if (sortedPosts.length > 0) {
           setSelectedPostId(sortedPosts[0].id)
@@ -141,7 +145,7 @@ export default function CaptionGeneratorPage() {
 
       const data = await response.json()
       console.log("Created post:", data.post)
-      const updatedPosts = [...posts, data.post].sort((a, b) => parseInt(a.id) - parseInt(b.id))
+      const updatedPosts = [...posts, data.post].sort((a, b) => Number.parseInt(a.id) - Number.parseInt(b.id))
       setPosts(updatedPosts)
       setSelectedPostId(data.post.id)
       setError(null)
@@ -157,6 +161,7 @@ export default function CaptionGeneratorPage() {
 
     setIsGenerating(true)
     setError(null)
+    setShowSuccess(false)
     setAiMessage("Processing your request... Crafting some steamy captions for you!")
     try {
       const response = await fetch("/api/caption-generator", {
@@ -165,7 +170,7 @@ export default function CaptionGeneratorPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...formData, postId: selectedPostId }),
+        body: JSON.stringify(formData),
       })
 
       if (!response.ok) {
@@ -180,11 +185,62 @@ export default function CaptionGeneratorPage() {
 
       setPosts(posts.map((post) => (post.id === selectedPostId ? { ...post, captions: data.captions } : post)))
       setAiMessage("Captions generated! Check them out on the right.")
+
+      setShowSuccess(true)
+      toast({
+        title: "Success!",
+        description: "Your captions are ready to use.",
+        duration: 3000,
+      })
     } catch (error: any) {
       setError(error.message || "Failed to generate captions. Please try again.")
       setAiMessage("Oops, something went wrong. Try adjusting your inputs and generating again!")
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const handleClearCaptions = () => {
+    console.log("Clearing captions for post:", selectedPostId)
+    setPosts(posts.map((post) => (post.id === selectedPostId ? { ...post, captions: [] } : post)))
+    setAiMessage("Captions cleared! Ready to generate new ones.")
+  }
+
+  const handleRemovePost = async (postId: string) => {
+    const token = localStorage.getItem("token")
+    if (!token) return
+
+    if (posts.length === 1) {
+      setError("Cannot remove the last post")
+      return
+    }
+
+    try {
+      console.log("Removing post:", postId)
+      const response = await fetch(`/api/posts?id=${postId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+
+      const updatedPosts = posts.filter((post) => post.id !== postId)
+      setPosts(updatedPosts)
+
+      if (selectedPostId === postId && updatedPosts.length > 0) {
+        setSelectedPostId(updatedPosts[0].id)
+      }
+
+      setError(null)
+      console.log("Post removed successfully")
+    } catch (error: any) {
+      console.error("Error removing post:", error)
+      setError(error.message)
     }
   }
 
@@ -205,7 +261,7 @@ export default function CaptionGeneratorPage() {
             selectedPostId={selectedPostId}
             onSelectPost={setSelectedPostId}
             onAddPost={handleAddPost}
-            onReorderPosts={setPosts}
+            onRemovePost={handleRemovePost}
           />
         </div>
 
@@ -213,14 +269,7 @@ export default function CaptionGeneratorPage() {
           <div className="p-4 md:p-6">
             {error && <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
 
-            <div className="mb-6 p-4 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg border border-border">
-              <div className="flex items-center justify-center gap-3 flex-col text-center">
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
-                  AI
-                </div>
-                <p className="text-sm text-foreground leading-relaxed">{aiMessage}</p>
-              </div>
-            </div>
+            <AiBotStatus isGenerating={isGenerating} message={aiMessage} showSuccess={showSuccess} />
 
             <CaptionForm
               key={selectedPostId}
@@ -232,7 +281,7 @@ export default function CaptionGeneratorPage() {
         </div>
 
         <div className="overflow-y-auto">
-          <CaptionResults posts={posts} selectedPostId={selectedPostId} />
+          <CaptionResults posts={posts} selectedPostId={selectedPostId} onClearCaptions={handleClearCaptions} />
         </div>
       </div>
     </div>

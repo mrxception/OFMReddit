@@ -1,6 +1,6 @@
 "use client"
 
-import { Copy, Check } from "lucide-react"
+import { Copy, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import type { Post } from "@/app/caption-generator/page"
@@ -8,9 +8,10 @@ import type { Post } from "@/app/caption-generator/page"
 type CaptionResultsProps = {
   posts: Post[]
   selectedPostId: string
+  onClearCaptions: () => void
 }
 
-export function CaptionResults({ posts, selectedPostId }: CaptionResultsProps) {
+export function CaptionResults({ posts, selectedPostId, onClearCaptions }: CaptionResultsProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const selectedPost = posts.find((p) => p.id === selectedPostId)
@@ -25,7 +26,19 @@ export function CaptionResults({ posts, selectedPostId }: CaptionResultsProps) {
   return (
     <div className="bg-card overflow-y-auto">
       <div className="p-6">
-        <h2 className="text-lg font-semibold mb-6 text-foreground">Generated Captions</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-foreground">Generated Captions</h2>
+          <Button
+            onClick={onClearCaptions}
+            disabled={captions.length === 0}
+            variant="outline"
+            size="sm"
+            className={`${captions.length === 0 ? "opacity-50 cursor-not-allowed bg-gray-300 text-gray-500" : "hover:bg-destructive hover:text-destructive-foreground"}`}
+          >
+            <X className="w-4 h-4 mr-2" />
+            Clear
+          </Button>
+        </div>
 
         {captions.length > 0 ? (
           <div className="space-y-3">
