@@ -29,6 +29,7 @@ export type FormData = {
   creativeStyle: string
   isInteractive: false
   subredditName: string
+  contentType: string
 }
 
 export default function CaptionGeneratorPage() {
@@ -75,9 +76,10 @@ export default function CaptionGeneratorPage() {
           return
         }
 
-        setPosts(data.posts)
-        if (data.posts.length > 0) {
-          setSelectedPostId(data.posts[0].id)
+        const sortedPosts = [...data.posts].sort((a, b) => parseInt(a.id) - parseInt(b.id))
+        setPosts(sortedPosts)
+        if (sortedPosts.length > 0) {
+          setSelectedPostId(sortedPosts[0].id)
         }
       } catch (error: any) {
         console.error("Error fetching posts:", error)
@@ -139,7 +141,8 @@ export default function CaptionGeneratorPage() {
 
       const data = await response.json()
       console.log("Created post:", data.post)
-      setPosts([...posts, data.post])
+      const updatedPosts = [...posts, data.post].sort((a, b) => parseInt(a.id) - parseInt(b.id))
+      setPosts(updatedPosts)
       setSelectedPostId(data.post.id)
       setError(null)
     } catch (error: any) {
@@ -202,6 +205,7 @@ export default function CaptionGeneratorPage() {
             selectedPostId={selectedPostId}
             onSelectPost={setSelectedPostId}
             onAddPost={handleAddPost}
+            onReorderPosts={setPosts}
           />
         </div>
 

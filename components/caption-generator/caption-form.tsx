@@ -32,6 +32,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     creativeStyle: "fantasy",
     isInteractive: false,
     subredditName: "",
+    contentType: "picture", 
   })
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({})
 
@@ -90,6 +91,10 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
   const handleToggleInteractive = (checked: boolean) => {
     setFormData((prev) => ({ ...prev, isInteractive: checked }) as FormData)
+  }
+
+  const handleContentTypeChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, contentType: value as "picture" | "picture set" | "GIF/short video" }))
   }
 
   return (
@@ -217,7 +222,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 </div>
 
                 <div className="space-y-2 border border-[var(--border)] rounded-lg p-4">
-                  <Label className="text-[var(--card-foreground)]">Degen Scale</Label>
+                  <Label className="w-fit text-[var(--card-foreground)]">Degen Scale</Label>
                   <div className="space-y-2 p-2">
                     <Slider
                       value={[formData.degenScale]}
@@ -246,7 +251,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="space-y-3 border border-[var(--border)] rounded-lg p-4 max-w-md">
-                    <Label className="text-[var(--card-foreground)] text-lg">Degen Scale</Label>
+                    <Label className="w-fit text-[var(--card-foreground)] text-lg">Degen Scale</Label>
                     <div className="space-y-2 p-2">
                       <Slider
                         value={[formData.degenScale]}
@@ -283,7 +288,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Label className="text-[var(--card-foreground)] text-lg">Creative Style</Label>
+                    <Label className="w-fit text-[var(--card-foreground)] text-lg">Creative Style</Label>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
                     <p>Optionally refines the caption's narrative to focus on a specific type of scenario.</p>
@@ -340,7 +345,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <div className="space-y-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Label htmlFor="subredditName" className="text-[var(--card-foreground)]">
+                      <Label htmlFor="subredditName" className="w-fit text-[var(--card-foreground)]">
                         Subreddit Name{" "}
                         <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
                       </Label>
@@ -364,7 +369,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <div className="space-y-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Label className="text-[var(--card-foreground)]">
+                      <Label className="w-fit text-[var(--card-foreground)]">
                         Subreddit Category{" "}
                         {formData.subredditName.trim() === "" && (
                           <span className="text-sm font-normal text-red-500">*</span>
@@ -425,34 +430,77 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </div>
 
             <div className="space-y-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Label htmlFor="context" className="text-[var(--card-foreground)] text-lg">
-                    Visual Context
-                  </Label>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-xs">
-                  <p>
-                    Describe the main action, setting, or focus of the content. This is not for a literal description,
-                    but to provide creative inspiration for the captions. E.g. showering, sitting on gamer chair showing
-                    boobs, titty reveal in the garden.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-              <Textarea
-                id="context"
-                placeholder="e.g., showering, sitting on gamer chair showing boobs, titty reveal in the garden"
-                value={formData.visualContext}
-                onChange={(e) => handleChange(e, "visualContext")}
-                className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70 min-h-[80px]"
-                disabled={isGenerating}
-              />
+              <Label className="text-[var(--card-foreground)] text-lg">Content Details</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Label htmlFor="context" className="w-fit text-[var(--card-foreground)] text-lg">
+                        Visual Context
+                      </Label>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p>
+                        Describe the main action, setting, or focus of the content. This is not for a literal
+                        description, but to provide creative inspiration for the captions. E.g. showering, sitting on
+                        gamer chair showing boobs, titty reveal in the garden.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Textarea
+                    id="context"
+                    placeholder="e.g., showering, sitting on gamer chair showing boobs, titty reveal in the garden"
+                    value={formData.visualContext}
+                    onChange={(e) => handleChange(e, "visualContext")}
+                    className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70 min-h-[80px]"
+                    disabled={isGenerating}
+                  />
+                </div>
+                <div className="space-y-3 border border-[var(--border)] bg-[var(--card)] rounded-lg p-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Label className="w-fit text-[var(--card-foreground)] text-lg">
+                        Content Type
+                      </Label>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p>Specify the type of content to tailor the caption style. Influences how the caption describes the media.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <RadioGroup
+                    value={formData.contentType}
+                    onValueChange={handleContentTypeChange}
+                    className="flex space-x-2"
+                    disabled={isGenerating}
+                  >
+                    {[
+                      { value: "picture", label: "Picture" },
+                      { value: "picture set", label: "Picture Set" },
+                      { value: "GIF/short video", label: "GIF/Short Video" },
+                    ].map((option) => (
+                      <div key={option.value} className="flex items-center py-2 space-x-2">
+                        <RadioGroupItem
+                          value={option.value}
+                          id={`content-type-${option.value}`}
+                          className="border-[var(--border)] scale-125"
+                        />
+                        <Label
+                          htmlFor={`content-type-${option.value}`}
+                          className="text-[var(--card-foreground)] font-normal cursor-pointer"
+                        >
+                          {option.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Label htmlFor="mood" className="text-[var(--card-foreground)] text-lg">
+                  <Label htmlFor="mood" className="w-fit text-[var(--card-foreground)] text-lg">
                     Caption Mood
                   </Label>
                 </TooltipTrigger>
@@ -473,7 +521,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             <div className="space-y-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Label htmlFor="rules" className="text-[var(--card-foreground)] text-lg">
+                  <Label htmlFor="rules" className="w-fit text-[var(--card-foreground)] text-lg">
                     Rules
                   </Label>
                 </TooltipTrigger>
@@ -496,46 +544,41 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         <div className="flex items-center space-x-2 my-8">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div
-                className={`relative w-16 h-7 rounded-full cursor-pointer transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"} ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+              <div className="flex items-center space-x-2 cursor-pointer"
                 onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
-                role="switch"
-                aria-checked={formData.isInteractive}
-                aria-disabled={isGenerating}
               >
-                <span
-                  className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"}`}
-                />
-                <span
-                  className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"}`}
+                <div
+                  className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"} ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+                  role="switch"
+                  aria-checked={formData.isInteractive}
+                  aria-disabled={isGenerating}
                 >
-                  ON
-                </span>
-                <span
-                  className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"}`}
-                >
-                  OFF
-                </span>
+                  <span
+                    className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"}`}
+                  />
+                  <span
+                    className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"}`}
+                  >
+                    ON
+                  </span>
+                  <span
+                    className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"}`}
+                  >
+                    OFF
+                  </span>
+                </div>
+
+                <Label className="text-[var(--card-foreground)] text-lg">
+                  Interactive/Clickbait Captions{" "}
+                  <span className="text-sm font-normal">(beware some subreddits do not allow questions)</span>
+                </Label>
               </div>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
+
+            <TooltipContent className="max-w-xs" side="right">
               <p>
                 Enable to generate interactive/clickbait captions (e.g., 'Would you introduce me to your parents?') that
                 encourage comments like 'yes' or 'no'.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Label className="text-[var(--card-foreground)] text-lg">
-                Interactive/Clickbait Captions{" "}
-                <span className="text-sm font-normal">(beware some subreddits do not allow questions)</span>
-              </Label>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p>
-                Enabling 'Interactive/Clickbait Captions' means all caption options for this specific post will be
-                clickbait/interactive.
               </p>
             </TooltipContent>
           </Tooltip>

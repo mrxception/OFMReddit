@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
       rules,
       creativeStyle,
       postId,
-      isInteractive, // Added new field
+      isInteractive,
+      contentType,
     } = body
 
     if (!mode || !gender) {
@@ -42,15 +43,20 @@ export async function POST(request: NextRequest) {
 
     let prompt = ""
     if (mode === "keywords") {
-      prompt = `Generate 5 creative and engaging Reddit post captions for adult content.
+      prompt = `Generate 5 creative and engaging Reddit post captions for adult content, with a strong emphasis on tailoring the style based on the content type.
 
-Physical features: ${physicalFeatures || "not specified"}
-Gender: ${gender}
-Visual context: ${visualContext || "not specified"}
-Mood: ${captionMood || "seductive"}
-Creative style: ${creativeStyle || "not specified"}
+Key details:
+- Physical features: ${physicalFeatures || "not specified"}
+- Gender: ${gender}
+- Visual context: ${visualContext || "not specified"}
+- Content type: ${contentType || "picture"} (CRUCIALLY tailor captions as follows: 
+  - 'picture': Focus on a single vivid image (e.g., "This sultry pose in silk captures every curve perfectly").
+  - 'picture set': Highlight a sequence or variety (e.g., "Watch my curves unfold across these steamy shots").
+  - 'GIF/short video': Emphasize motion or progression (e.g., "See my teasing dance unfold in this flickering clip").)
+- Mood: ${captionMood || "seductive"}
+- Creative style: ${creativeStyle || "not specified"}
 
-Generate 5 different caption options that are ${degenScale === 1 ? "suggestive" : degenScale === 2 ? "direct" : "explicit"}, seductive, and engaging for Reddit. Each caption should be 150–200 characters long.
+Generate 5 distinct caption options that are ${degenScale === 1 ? "suggestive" : degenScale === 2 ? "direct" : "explicit"}, seductive, and engaging for Reddit. Each caption must be 150–200 characters long and reflect the specified content type's style as the top priority. 
 ${isInteractive ? "Include an interactive/clickbait style, using questions (e.g., 'Would you introduce me to your parents?') to encourage comments like 'yes' or 'no'." : ""}
 
 Return ONLY a valid JSON array of 5 objects, each with 'option' (number from 1 to 5) and 'text' (string) fields. Do not include any text before or after the JSON array. Ensure the JSON is parseable without errors.
@@ -63,18 +69,23 @@ Example:
   {"option": 5, "text": "Basking in the glow of desire, I tempt you with every move, promising a night of electrifying passion."}
 ]`
     } else {
-      prompt = `Generate 5 creative and engaging Reddit post captions for adult content.
+      prompt = `Generate 5 creative and engaging Reddit post captions for adult content, with a strong emphasis on tailoring the style based on the content type.
 
-Physical features/niche: ${physicalFeatures || "not specified"}
-Gender: ${gender}
-Subreddit type: ${subredditType || "not specified"}
-Visual context: ${visualContext || "not specified"}
-Caption mood: ${captionMood || "seductive"}
-Rules to follow: ${rules || "none"}
-Creative style: ${creativeStyle || "not specified"}
-Explicitness level: ${degenScale === 1 ? "suggestive" : degenScale === 2 ? "direct" : "explicit"}
+Key details:
+- Physical features/niche: ${physicalFeatures || "not specified"}
+- Gender: ${gender}
+- Subreddit type: ${subredditType || "not specified"}
+- Visual context: ${visualContext || "not specified"}
+- Content type: ${contentType || "picture"} (CRUCIALLY tailor captions as follows: 
+  - 'picture': Focus on a single vivid image (e.g., "This sultry pose in silk captures every curve perfectly").
+  - 'picture set': Highlight a sequence or variety (e.g., "Watch my curves unfold across these steamy shots").
+  - 'GIF/short video': Emphasize motion or progression (e.g., "See my teasing dance unfold in this flickering clip").)
+- Caption mood: ${captionMood || "seductive"}
+- Rules to follow: ${rules || "none"}
+- Creative style: ${creativeStyle || "not specified"}
+- Explicitness level: ${degenScale === 1 ? "suggestive" : degenScale === 2 ? "direct" : "explicit"}
 
-Generate 5 different caption options that are seductive, match the mood and explicitness level, are appropriate for the specified subreddit type, follow the creative style if specified, and are 150–200 characters long.
+Generate 5 distinct caption options that are seductive, match the mood and explicitness level, are appropriate for the specified subreddit type, follow the creative style if specified, and are 150–200 characters long. The content type's style must be the primary influence on each caption. 
 ${isInteractive ? "Include an interactive/clickbait style, using questions (e.g., 'Would you introduce me to your parents?') to encourage comments like 'yes' or 'no'." : ""}
 
 Return ONLY a valid JSON array of 5 objects, each with 'option' (number from 1 to 5) and 'text' (string) fields. Do not include any text before or after the JSON array. Ensure the JSON is parseable without errors.
