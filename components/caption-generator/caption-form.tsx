@@ -19,11 +19,32 @@ type CaptionFormProps = {
   error?: string | null
 }
 
+const loadSavedCreatorFeatures = () => {
+  if (typeof window === "undefined") return { physicalFeatures: "", gender: "female" as const }
+
+  try {
+    const savedFeatures = localStorage.getItem("creatorFeatures")
+    if (savedFeatures) {
+      const parsed = JSON.parse(savedFeatures)
+      return {
+        physicalFeatures: parsed.physicalFeatures || "",
+        gender: (parsed.gender || "female") as "female" | "male" | "trans",
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load creator features:", error)
+  }
+
+  return { physicalFeatures: "", gender: "female" as const }
+}
+
 export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProps) {
+  const savedFeatures = loadSavedCreatorFeatures()
+
   const [formData, setFormData] = useState<FormData>({
     mode: "advanced",
-    physicalFeatures: "",
-    gender: "female",
+    physicalFeatures: savedFeatures.physicalFeatures,
+    gender: savedFeatures.gender,
     subredditType: "generalist",
     visualContext: "",
     degenScale: 2,
@@ -32,44 +53,49 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     creativeStyle: "fantasy",
     isInteractive: false,
     subredditName: "",
-    contentType: "picture", 
+    contentType: "picture",
   })
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({})
 
   useEffect(() => {
-    const savedFeatures = localStorage.getItem("creatorFeatures")
-    if (savedFeatures) {
-      try {
-        const { physicalFeatures, gender } = JSON.parse(savedFeatures)
-        setFormData((prev) => ({
-          ...prev,
-          physicalFeatures: physicalFeatures || prev.physicalFeatures,
-          gender: gender || prev.gender,
-        }))
-      } catch (error) {
-        console.error("Failed to load creator features:", error)
-      }
-    }
-  }, [])
+    if (typeof window === "undefined") return
 
-  useEffect(() => {
     const creatorFeatures = {
       physicalFeatures: formData.physicalFeatures,
       gender: formData.gender,
     }
     localStorage.setItem("creatorFeatures", JSON.stringify(creatorFeatures))
+    console.log("Saved creator features to localStorage:", creatorFeatures)
   }, [formData.physicalFeatures, formData.gender])
 
   useEffect(() => {
     const errors: Partial<Record<keyof FormData, string>> = {}
+
+    
+    if (!formData.physicalFeatures.trim()) {
+      errors.physicalFeatures = "Creator's niche/features is required"
+    }
+
+    
     if (!formData.gender) {
       errors.gender = "Gender is required"
     }
-    if (formData.mode === "advanced" && !formData.subredditName.trim() && !formData.subredditType) {
-      errors.subredditType = "Subreddit Category is required when Subreddit Name is not provided"
+
+    
+    if (formData.mode === "advanced") {
+      
+      if (!formData.visualContext.trim()) {
+        errors.visualContext = "Visual context is required"
+      }
+
+      
+      if (!formData.subredditName.trim() && !formData.subredditType) {
+        errors.subredditType = "Subreddit name or category is required"
+      }
     }
+    
+
     setFormErrors(errors)
-    console.log("CaptionForm formData:", formData, "formErrors:", errors)
   }, [formData])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -125,8 +151,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
                   <p>
-                    Provide keywords (e.g., niche, visual context, mood), and the AI will automatically infer the best
-                    caption strategy for your post.
+                    Provide keywords (niche, visual context, mood), and the AI will automatically infer the best caption
+                    strategy for your post.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -162,11 +188,11 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               <div className="grid grid-cols-[1fr_auto] gap-4 items-start mb-4">
                 <div className="space-y-2">
                   <Label htmlFor="features" className="text-[var(--card-foreground)]">
-                    Niche/Physical Features
+                    Niche/Physical Features <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="features"
-                    placeholder="e.g. cute, Japanese girl, anime, big natural boobs"
+                    placeholder="cute, Japanese girl, anime, big natural boobs"
                     value={formData.physicalFeatures}
                     onChange={(e) => handleChange(e, "physicalFeatures")}
                     className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
@@ -175,7 +201,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-[var(--card-foreground)]">Gender</Label>
+                  <Label className="text-[var(--card-foreground)]">
+                    Gender <span className="text-red-500">*</span>
+                  </Label>
                   <Select value={formData.gender} onValueChange={handleGenderChange} disabled={isGenerating}>
                     <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--foreground)]">
                       <SelectValue placeholder="Select Gender" />
@@ -186,7 +214,6 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       <SelectItem value="trans">Trans</SelectItem>
                     </SelectContent>
                   </Select>
-                  {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
                 </div>
               </div>
             </>
@@ -194,11 +221,11 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="features" className="text-[var(--card-foreground)]">
-                  Keywords
+                  Keywords <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
                   id="features"
-                  placeholder="e.g., blonde, athletic, lingerie, bedroom setting"
+                  placeholder="blonde, athletic, lingerie, bedroom setting"
                   value={formData.physicalFeatures}
                   onChange={(e) => handleChange(e, "physicalFeatures")}
                   className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70 min-h-[80px]"
@@ -207,7 +234,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 border border-[var(--border)] rounded-lg p-4">
-                  <Label className="text-[var(--card-foreground)]">Gender</Label>
+                  <Label className="text-[var(--card-foreground)]">
+                    Gender <span className="text-red-500">*</span>
+                  </Label>
                   <Select value={formData.gender} onValueChange={handleGenderChange} disabled={isGenerating}>
                     <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--foreground)]">
                       <SelectValue placeholder="Select Gender" />
@@ -218,7 +247,6 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       <SelectItem value="trans">Trans</SelectItem>
                     </SelectContent>
                   </Select>
-                  {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
                 </div>
 
                 <div className="space-y-2 border border-[var(--border)] rounded-lg p-4">
@@ -352,14 +380,14 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-xs">
                       <p>
-                        Enter the subreddit name for tailored captions (e.g., r/example). This will auto-determine the
+                        Enter the subreddit name for tailored captions (r/example). This will auto-determine the
                         subreddit type.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                   <Input
                     id="subredditName"
-                    placeholder="e.g., r/example"
+                    placeholder="r/example"
                     value={formData.subredditName}
                     onChange={(e) => handleChange(e, "subredditName")}
                     className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
@@ -424,7 +452,6 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       <SelectItem value="aesthetic">Aesthetic/Subculture</SelectItem>
                     </SelectContent>
                   </Select>
-                  {formErrors.subredditType && <p className="text-red-500 text-sm">{formErrors.subredditType}</p>}
                 </div>
               </div>
             </div>
@@ -436,20 +463,20 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Label htmlFor="context" className="w-fit text-[var(--card-foreground)] text-lg">
-                        Visual Context
+                        Visual Context <span className="text-red-500">*</span>
                       </Label>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-xs">
                       <p>
                         Describe the main action, setting, or focus of the content. This is not for a literal
-                        description, but to provide creative inspiration for the captions. E.g. showering, sitting on
-                        gamer chair showing boobs, titty reveal in the garden.
+                        description, but to provide creative inspiration for the captions. showering, sitting on gamer
+                        chair showing boobs, titty reveal in the garden.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                   <Textarea
                     id="context"
-                    placeholder="e.g., showering, sitting on gamer chair showing boobs, titty reveal in the garden"
+                    placeholder="showering, sitting on gamer chair showing boobs, titty reveal in the garden"
                     value={formData.visualContext}
                     onChange={(e) => handleChange(e, "visualContext")}
                     className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70 min-h-[80px]"
@@ -459,12 +486,13 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <div>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Label className="w-fit text-[var(--card-foreground)] text-lg">
-                        Content Type
-                      </Label>
+                      <Label className="w-fit text-[var(--card-foreground)] text-lg">Content Type</Label>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-xs">
-                      <p>Specify the type of content to tailor the caption style. Influences how the caption describes the media.</p>
+                      <p>
+                        Specify the type of content to tailor the caption style. Influences how the caption describes
+                        the media.
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                   <div className="space-y-3 border border-[var(--border)] h-[80px] bg-[var(--card)] rounded-lg mt-2 p-4">
@@ -507,12 +535,12 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </Label>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
-                  <p>This sets the emotional tone for your captions. e.g. playful, confident, shy, commanding</p>
+                  <p>This sets the emotional tone for your captions. playful, confident, shy, commanding</p>
                 </TooltipContent>
               </Tooltip>
               <Input
                 id="mood"
-                placeholder="e.g., playful, confident, shy, commanding"
+                placeholder="playful, confident, shy, commanding"
                 value={formData.captionMood}
                 onChange={(e) => handleChange(e, "captionMood")}
                 className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
@@ -528,12 +556,12 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </Label>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
-                  <p>Specify any title rules for the particular subreddit you're posting to e.g. gender tag</p>
+                  <p>Specify any title rules for the particular subreddit you're posting to. gender tag</p>
                 </TooltipContent>
               </Tooltip>
               <Input
                 id="rules"
-                placeholder="e.g., gender tag"
+                placeholder="gender tag"
                 value={formData.rules}
                 onChange={(e) => handleChange(e, "rules")}
                 className="bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:opacity-50 dark:placeholder:opacity-70"
@@ -546,7 +574,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         <div className="flex items-center space-x-2 my-8">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center space-x-2 cursor-pointer"
+              <div
+                className="flex items-center space-x-2 cursor-pointer"
                 onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
               >
                 <div
@@ -589,7 +618,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         <Button
           type="submit"
           disabled={isGenerating || Object.keys(formErrors).length > 0}
-          className="w-full bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] h-12 text-base font-semibold disabled:opacity-50"
+          className="w-full bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] h-12 text-base font-semibold disabled:opacity-50 mb-10"
         >
           {isGenerating ? "Generating..." : "Generate Captions"}
         </Button>

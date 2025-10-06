@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { verifyToken } from "@/lib/auth"
 
-
 export async function GET(request: NextRequest) {
   try {
     console.log("GET /api/posts - Starting request")
@@ -21,38 +20,23 @@ export async function GET(request: NextRequest) {
 
     console.log("User authenticated:", payload.userId)
 
-    
     const posts = await query(
-      `SELECT p.id, p.name, p.created_at,
-              c.id as caption_id, c.option_number, c.text as caption_text
+      `SELECT p.id, p.name, p.created_at
        FROM posts p
-       LEFT JOIN captions c ON p.id = c.post_id
        WHERE p.user_id = ?
-       ORDER BY p.created_at DESC, c.option_number ASC`,
+       ORDER BY p.created_at DESC`,
       [payload.userId],
     )
 
-    console.log("Query successful, found", (posts as any[]).length, "rows")
+    console.log("Query successful, found", (posts as any[]).length, "posts")
 
-    
-    const postsMap = new Map()
-    for (const row of posts as any[]) {
-      if (!postsMap.has(row.id)) {
-        postsMap.set(row.id, {
-          id: String(row.id),
-          name: row.name,
-          captions: [],
-        })
-      }
-      if (row.caption_id) {
-        postsMap.get(row.id).captions.push({
-          option: row.option_number,
-          text: row.caption_text,
-        })
-      }
-    }
+    const postsData = (posts as any[]).map((row) => ({
+      id: String(row.id),
+      name: row.name,
+      captions: [], 
+    }))
 
-    return NextResponse.json({ posts: Array.from(postsMap.values()) })
+    return NextResponse.json({ posts: postsData })
   } catch (error: any) {
     console.error("Error fetching posts:", error)
     console.error("Error details:", {
@@ -70,7 +54,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,7 +87,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-
 export async function DELETE(request: NextRequest) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
@@ -123,7 +105,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Post ID is required" }, { status: 400 })
     }
 
-    
     const posts = await query("SELECT id FROM posts WHERE id = ? AND user_id = ?", [postId, payload.userId])
     if ((posts as any[]).length === 0) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 })
