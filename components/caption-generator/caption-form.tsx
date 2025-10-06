@@ -456,7 +456,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     disabled={isGenerating}
                   />
                 </div>
-                <div className="space-y-3 border border-[var(--border)] bg-[var(--card)] rounded-lg p-4">
+                <div>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Label className="w-fit text-[var(--card-foreground)] text-lg">
@@ -467,32 +467,34 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       <p>Specify the type of content to tailor the caption style. Influences how the caption describes the media.</p>
                     </TooltipContent>
                   </Tooltip>
-                  <RadioGroup
-                    value={formData.contentType}
-                    onValueChange={handleContentTypeChange}
-                    className="flex space-x-2"
-                    disabled={isGenerating}
-                  >
-                    {[
-                      { value: "picture", label: "Picture" },
-                      { value: "picture set", label: "Picture Set" },
-                      { value: "GIF/short video", label: "GIF/Short Video" },
-                    ].map((option) => (
-                      <div key={option.value} className="flex items-center py-2 space-x-2">
-                        <RadioGroupItem
-                          value={option.value}
-                          id={`content-type-${option.value}`}
-                          className="border-[var(--border)] scale-125"
-                        />
-                        <Label
-                          htmlFor={`content-type-${option.value}`}
-                          className="text-[var(--card-foreground)] font-normal cursor-pointer"
-                        >
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
+                  <div className="space-y-3 border border-[var(--border)] h-[80px] bg-[var(--card)] rounded-lg mt-2 p-4">
+                    <RadioGroup
+                      value={formData.contentType}
+                      onValueChange={handleContentTypeChange}
+                      className="flex space-x-2"
+                      disabled={isGenerating}
+                    >
+                      {[
+                        { value: "picture", label: "Picture" },
+                        { value: "picture set", label: "Picture Set" },
+                        { value: "GIF/short video", label: "GIF/Short Video" },
+                      ].map((option) => (
+                        <div key={option.value} className="flex items-center py-4 space-x-2">
+                          <RadioGroupItem
+                            value={option.value}
+                            id={`content-type-${option.value}`}
+                            className="border-[var(--border)] scale-125"
+                          />
+                          <Label
+                            htmlFor={`content-type-${option.value}`}
+                            className="text-[var(--card-foreground)] font-normal cursor-pointer"
+                          >
+                            {option.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
                 </div>
               </div>
             </div>
