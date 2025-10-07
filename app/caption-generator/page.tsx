@@ -261,7 +261,6 @@ export default function CaptionGeneratorPage() {
               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
             </div>
           </div>
-          <p className="text-sm text-foreground leading-relaxed">Loading</p>
         </div>
       </div>
     )
