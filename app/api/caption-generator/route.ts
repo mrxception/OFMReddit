@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
-import OpenAI from "openai"
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,106 +85,85 @@ Example:
 ]`
     }
 
-    let captions = null;
-
-    try {
-      const primaryApiKey = process.env.GEMINI_API_KEY
-      if (!primaryApiKey) {
-        throw new Error("Primary API key is not set in environment variables")
-      }
-
-      const openai = new OpenAI({
-        apiKey: primaryApiKey,
-        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-      })
-
-      const response = await openai.chat.completions.create({
-        model: "gemini-2.5-flash",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-      })
-
-      const text = response.choices[0]?.message?.content
-      if (text) {
-        try {
-          captions = JSON.parse(text)
-          if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
-            throw new Error("Invalid captions format from primary API")
-          }
-        } catch (error) {
-          const jsonMatch = text.match(/\[[\s\S]*?\]/)
-          if (jsonMatch) {
-            captions = JSON.parse(jsonMatch[0])
-            if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
-              throw new Error("Invalid captions format in primary API fallback parsing")
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.warn("Primary API failed:", error)
+    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyCQhwW3s0G5kqymbQeTRXDcjbGH4zKU53U"
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not set in environment variables")
     }
 
-    if (!captions) {
-      const secondaryApiUrl = "https://router.huggingface.co/novita/v3/openai/chat/completions"
-      const secondaryApiKey = process.env.AI_API_KEY
-      if (!secondaryApiKey) {
-        throw new Error("Secondary API key is not set in environment variables")
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_NONE",
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_NONE",
+            },
+          ],
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`)
+    }
+
+    const data = await response.json()
+
+    // Check if response was blocked
+    if (data.promptFeedback?.blockReason) {
+      throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text) {
+      throw new Error("No content returned from Gemini API")
+    }
+
+    let captions
+    try {
+      captions = JSON.parse(text)
+      if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
+        throw new Error("Invalid captions format")
       }
-
-      const secondaryHeaders = {
-        "Authorization": `Bearer ${secondaryApiKey}`,
-        "Content-Type": "application/json"
+    } catch (error) {
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (!jsonMatch) {
+        throw new Error("Failed to parse captions from AI response")
       }
-
-      const secondaryPayload = {
-        messages: [{ role: "user", content: prompt }],
-        model: "deepseek/deepseek-v3-0324",
-        stream: false,
-        temperature: 0.7
-      }
-
-      try {
-        const response = await fetch(secondaryApiUrl, {
-          method: "POST",
-          headers: secondaryHeaders,
-          body: JSON.stringify(secondaryPayload)
-        })
-
-        if (!response.ok) {
-          let errorData = {}
-          try {
-            errorData = await response.json()
-          } catch (e) {
-            console.error("Failed to parse error response:", e)
-          }
-          throw new Error(`Secondary API request failed (${response.status})`)
-        }
-
-        const data = await response.json()
-        const text = data.choices?.[0]?.message?.content
-        if (!text) {
-          throw new Error("No content returned from secondary API")
-        }
-
-        try {
-          captions = JSON.parse(text)
-          if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
-            throw new Error("Invalid captions format from secondary API")
-          }
-        } catch (error) {
-          const jsonMatch = text.match(/\[[\s\S]*?\]/)
-          if (!jsonMatch) {
-            throw new Error("Failed to parse captions from secondary API response")
-          }
-          captions = JSON.parse(jsonMatch[0])
-          if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
-            throw new Error("Invalid captions format in secondary API fallback parsing")
-          }
-        }
-      } catch (error) {
-        console.error("Secondary API failed:", error)
-        throw new Error("Both APIs failed to generate captions")
+      captions = JSON.parse(jsonMatch[0])
+      if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
+        throw new Error("Invalid captions format in fallback parsing")
       }
     }
 
