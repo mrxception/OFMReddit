@@ -403,7 +403,7 @@ Return ONLY a valid JSON array with exactly 3 captions:
 Now generate 3 captions following the complete Apex framework with full Chain of Thought reasoning.`
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyCQhwW3s0G5kqymbQeTRXDcjbGH4zKU53U"
+    const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not set in environment variables")
     }
@@ -458,7 +458,6 @@ Now generate 3 captions following the complete Apex framework with full Chain of
 
     const data = await response.json()
 
-    // Check if response was blocked
     if (data.promptFeedback?.blockReason) {
       throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
     }
