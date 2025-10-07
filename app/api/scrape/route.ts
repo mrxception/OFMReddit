@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import ExcelJS from "exceljs"
 import crypto from "crypto"
+import { buildWorkbook, type SubredditRow } from "@/lib/excel/buildWorkbook"
+import { buildRawWorkbook, type RawPostRow } from "@/lib/excel/buildRawWorkbook"
 
 const sessions = new Map<
   string,
@@ -158,22 +159,16 @@ export async function POST(request: NextRequest) {
     if (!username) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 })
     }
-
     if (!sid) {
       return NextResponse.json({ error: "Session ID is required" }, { status: 400 })
     }
 
-    sessions.set(sid, {
-      phase: "Fetching posts…",
-      fetched: 0,
-      total: limit,
-      done: false,
-    })
+    sessions.set(sid, { phase: "Fetching posts…", fetched: 0, total: limit, done: false })
 
     let accessToken: string
     try {
       accessToken = await getAccessToken()
-    } catch (error: any) {
+    } catch {
       sessions.delete(sid)
       return NextResponse.json({ error: "Failed to authenticate with Reddit API" }, { status: 500 })
     }
@@ -208,22 +203,12 @@ export async function POST(request: NextRequest) {
             }
             const retryData = (await retryResponse.json()) as RedditApiResponse
             const children = retryData?.data?.children || []
-
             if (children.length === 0) break
-
             posts.push(...children)
-
-            sessions.set(sid, {
-              phase: "Fetching posts…",
-              fetched: posts.length,
-              total: maxLimit,
-              done: false,
-            })
-
+            sessions.set(sid, { phase: "Fetching posts…", fetched: posts.length, total: maxLimit, done: false })
             after = retryData?.data?.after
             if (!after) break
-
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            await new Promise((r) => setTimeout(r, 1000))
             continue
           } else if (response.status === 404) {
             throw new Error("User not found")
@@ -234,37 +219,21 @@ export async function POST(request: NextRequest) {
 
         const data = (await response.json()) as RedditApiResponse
         const children = data?.data?.children || []
-
         if (children.length === 0) break
-
         posts.push(...children)
-
-        sessions.set(sid, {
-          phase: "Fetching posts…",
-          fetched: posts.length,
-          total: maxLimit,
-          done: false,
-        })
-
+        sessions.set(sid, { phase: "Fetching posts…", fetched: posts.length, total: maxLimit, done: false })
         after = data?.data?.after
         if (!after) break
-
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await new Promise((r) => setTimeout(r, 1000))
       }
     } catch (error: any) {
       sessions.delete(sid)
       return NextResponse.json({ error: error.message || "Failed to fetch Reddit data" }, { status: 500 })
     }
 
-    sessions.set(sid, {
-      phase: "Processing data…",
-      fetched: posts.length,
-      total: posts.length,
-      done: false,
-    })
+    sessions.set(sid, { phase: "Processing data…", fetched: posts.length, total: posts.length, done: false })
 
     const subredditMap = new Map<string, SubredditStats>()
-
     for (const post of posts) {
       const subreddit = post.data.subreddit
       if (!subredditMap.has(subreddit)) {
@@ -277,7 +246,6 @@ export async function POST(request: NextRequest) {
           lastPostDate: 0,
         })
       }
-
       const stats = subredditMap.get(subreddit)!
       stats.totalPosts++
       stats.totalUpvotes += post.data.score
@@ -290,10 +258,9 @@ export async function POST(request: NextRequest) {
       stats.lastPostDate = Math.max(stats.lastPostDate, post.data.created_utc)
     }
 
-    const subredditStats = Array.from(subredditMap.values()).map((stats) => {
+    const subredditStats: SubredditRow[] = Array.from(subredditMap.values()).map((stats) => {
       const avgUpvotes = stats.totalPosts > 0 ? stats.totalUpvotes / stats.totalPosts : 0
       const avgComments = stats.totalPosts > 0 ? stats.totalComments / stats.totalPosts : 0
-
       const sortedScores = stats.posts.map((p) => p.score).sort((a, b) => a - b)
       const medianUpvotes =
         sortedScores.length > 0
@@ -321,78 +288,53 @@ export async function POST(request: NextRequest) {
     const maxDate = Math.max(...allDates)
     const datasetSpanDays = Math.ceil((maxDate - minDate) / (60 * 60 * 24))
 
-    const previewTop10 = subredditStats.slice(0, 10) 
+    const previewTop10 = subredditStats.slice(0, 10)
 
-    sessions.set(sid, {
-      phase: "Generating Excel file…",
-      fetched: posts.length,
-      total: posts.length,
-      done: false,
-    })
+    sessions.set(sid, { phase: "Generating Excel file…", fetched: posts.length, total: posts.length, done: false })
 
-    const workbook = new ExcelJS.Workbook()
-    const worksheet = workbook.addWorksheet("Subreddit Analysis")
-
-    const columns: any[] = [
-      { header: "Subreddit", key: "Subreddit", width: 25 },
-      { header: "Total Posts", key: "Total_Posts", width: 15 },
-      { header: "Avg Upvotes Per Post", key: "Avg_Upvotes_Per_Post", width: 20 },
-      { header: "Avg Comments Per Post", key: "Avg_Comments_Per_Post", width: 22 },
-    ]
-
-    if (inclMed) {
-      columns.push({ header: "Median Upvotes", key: "Median_Upvotes", width: 18 })
-    }
-    if (inclVote) {
-      columns.push({ header: "Total Upvotes", key: "Total_Upvotes", width: 18 })
-    }
-    if (inclComm) {
-      columns.push({ header: "Total Comments", key: "Total_Comments", width: 18 })
+    const toExcelUTCDate = (secs: number) => {
+      const d = new Date(secs * 1000)
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
     }
 
-    columns.push({ header: "Last Post Date (UTC)", key: "LastDateTimeUTC", width: 22 })
-
-    worksheet.columns = columns
-
-    worksheet.getRow(1).font = { bold: true }
-    worksheet.getRow(1).fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFE0E0E0" },
-    }
-
-    subredditStats.forEach((stat) => {
-      worksheet.addRow(stat)
+    const { buffer, filename } = await buildWorkbook(subredditStats, {
+      username,
+      inclMed,
+      inclVote,
+      inclComm,
     })
 
-    const buffer = await workbook.xlsx.writeBuffer()
+    const rawRows: RawPostRow[] = posts.map((p) => ({
+      Subreddit: p.data.subreddit,
+      Upvotes: p.data.score,
+      Comments: p.data.num_comments,
+      LastDate: toExcelUTCDate(p.data.created_utc),
+    }))
 
-    const fileId = crypto.randomUUID()
-    const filename = `${username}_subreddit_analysis.xlsx`
+    const { buffer: rawBuffer, filename: rawFilename } = await buildRawWorkbook(rawRows, username)
 
-    files.set(fileId, {
-      buffer: Buffer.from(buffer),
-      filename,
-      createdAt: Date.now(),
-    })
+    const analysisId = crypto.randomUUID()
+    files.set(analysisId, { buffer, filename, createdAt: Date.now() })
 
-    sessions.set(sid, {
-      phase: "Complete",
-      fetched: posts.length,
-      total: posts.length,
-      done: true,
-    })
+    const rawId = crypto.randomUUID()
+    files.set(rawId, { buffer: rawBuffer, filename: rawFilename, createdAt: Date.now() })
+
+    sessions.set(sid, { phase: "Complete", fetched: posts.length, total: posts.length, done: true })
 
     return NextResponse.json({
       datasetSpanDays,
-      previewTop10, 
-      preview: subredditStats, 
-      files: [{ id: fileId, filename }],
+      previewTop10,
+      preview: subredditStats,
+      files: [
+        { id: analysisId, filename },
+        { id: rawId, filename: rawFilename },
+      ],
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
+
 
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url)

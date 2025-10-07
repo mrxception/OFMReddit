@@ -12,6 +12,7 @@ export default function Scraper() {
   const [username, setUsername] = useState("")
   const [dateRange, setDateRange] = useState("all")
   const [limit, setLimit] = useState(100)
+
   const [inclSubs, setInclSubs] = useState(false)
   const [inclVote, setInclVote] = useState(false)
   const [inclComm, setInclComm] = useState(false)
@@ -220,27 +221,27 @@ export default function Scraper() {
           </p>
 
           <Form
-            onSubmit={onSubmit}
             progRef={progRef}
             status={status}
             busy={busy}
-            username={username}
-            setUsername={setUsername}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            limit={limit}
-            setLimit={setLimit}
-            inclVote={inclVote}
-            setInclVote={setInclVote}
-            inclSubs={inclSubs}
-            setInclSubs={setInclSubs}
+            username={username}    
+            dateRange={dateRange}       
+            limit={limit}          
+            inclVote={inclVote}           
+            inclSubs={inclSubs}            
             inclComm={inclComm}
-            setInclComm={setInclComm}
             inclPER={inclPER}
-            setInclPER={setInclPER}
             inclExtraFreq={inclExtraFreq}
-            setInclExtraFreq={setInclExtraFreq}
             inclMed={inclMed}
+            onSubmit={onSubmit}
+            setUsername={setUsername}
+            setDateRange={setDateRange}
+            setLimit={setLimit}
+            setInclVote={setInclVote}
+            setInclSubs={setInclSubs}
+            setInclComm={setInclComm}
+            setInclPER={setInclPER}
+            setInclExtraFreq={setInclExtraFreq}
             setInclMed={setInclMed}
             s={s}
           />
