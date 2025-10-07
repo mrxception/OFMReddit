@@ -71,29 +71,29 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
   useEffect(() => {
     const errors: Partial<Record<keyof FormData, string>> = {}
 
-    
+
     if (!formData.physicalFeatures.trim()) {
       errors.physicalFeatures = "Creator's niche/features is required"
     }
 
-    
+
     if (!formData.gender) {
       errors.gender = "Gender is required"
     }
 
-    
+
     if (formData.mode === "advanced") {
-      
+
       if (!formData.visualContext.trim()) {
         errors.visualContext = "Visual context is required"
       }
 
-      
+
       if (!formData.subredditName.trim() && !formData.subredditType) {
         errors.subredditType = "Subreddit name or category is required"
       }
     }
-    
+
 
     setFormErrors(errors)
   }, [formData])
@@ -572,48 +572,56 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         )}
 
         <div className="flex items-center space-x-2 my-8">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className="flex items-center space-x-2 cursor-pointer"
-                onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
+          <div
+            className="flex items-center space-x-2 cursor-pointer"
+            onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
+          >
+            <div
+              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
+                } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+              role="switch"
+              aria-checked={formData.isInteractive}
+              aria-disabled={isGenerating}
+            >
+              <span
+                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
+                  }`}
+              />
+              <span
+                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
+                  }`}
               >
-                <div
-                  className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"} ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
-                  role="switch"
-                  aria-checked={formData.isInteractive}
-                  aria-disabled={isGenerating}
-                >
-                  <span
-                    className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"}`}
-                  />
-                  <span
-                    className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"}`}
-                  >
-                    ON
-                  </span>
-                  <span
-                    className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"}`}
-                  >
-                    OFF
-                  </span>
-                </div>
+                ON
+              </span>
+              <span
+                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
+                  }`}
+              >
+                OFF
+              </span>
+            </div>
 
-                <Label className="text-[var(--card-foreground)] text-lg">
-                  Interactive/Clickbait Captions{" "}
-                  <span className="text-sm font-normal">(beware some subreddits do not allow questions)</span>
-                </Label>
-              </div>
-            </TooltipTrigger>
+            <Label className="text-[var(--card-foreground)] text-lg flex items-center space-x-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>Interactive/Clickbait Captions</span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs" side="right">
+                  <p>
+                    Enable to generate interactive/clickbait captions (e.g., “Would you
+                    introduce me to your parents?”) that encourage comments like “yes” or
+                    “no”.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
 
-            <TooltipContent className="max-w-xs" side="right">
-              <p>
-                Enable to generate interactive/clickbait captions (e.g., 'Would you introduce me to your parents?') that
-                encourage comments like 'yes' or 'no'.
-              </p>
-            </TooltipContent>
-          </Tooltip>
+              <span className="text-sm font-normal">
+                (beware some subreddits do not allow questions)
+              </span>
+            </Label>
+          </div>
         </div>
+
 
         <Button
           type="submit"
