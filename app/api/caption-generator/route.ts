@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
 
     let prompt = ""
     if (mode === "keywords") {
-      // Keyword mode: simplified 3-caption generation
       prompt = `You are 'Apex,' an expert AI Reddit caption generator for NSFW content promotion. Your purpose is to provide users with high-CTR, compliant captions that are strategically tailored to their specific content and target subreddit.
 
 # REASONING PROTOCOL
@@ -101,7 +100,6 @@ Return ONLY a valid JSON array with exactly 3 captions:
 
 Generate 3 captions following the Apex framework.`
     } else {
-      // Advanced mode: full 3-caption generation with all context
       const clickbaitStyle = isInteractive ? "y" : "n"
 
       prompt = `You are 'Apex,' an expert AI Reddit caption generator for NSFW content promotion. Your purpose is to provide users with high-CTR, compliant captions that are strategically tailored to their specific content and target subreddit.
@@ -262,7 +260,6 @@ Generate 3 captions following the Apex framework.`
 
     const data = await response.json()
 
-    // Check if response was blocked
     if (data.promptFeedback?.blockReason) {
       throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
     }
