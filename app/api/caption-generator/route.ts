@@ -1,3 +1,5 @@
+"use client"
+
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
 import OpenAI from "openai"
@@ -86,46 +88,106 @@ Example:
 ]`
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyCQhwW3s0G5kqymbQeTRXDcjbGH4zKU53U"
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set in environment variables")
-    }
+    let captions = null;
 
-    const openai = new OpenAI({
-      apiKey: apiKey,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-    })
-
-    const response = await openai.chat.completions.create({
-      model: "gemini-2.5-flash",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-    })
-
-    const text = response.choices[0]?.message?.content
-    if (!text) {
-      throw new Error("No content returned from Gemini API")
-    }
-
-    let captions
     try {
-      captions = JSON.parse(text)
-      if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
-        throw new Error("Invalid captions format")
+      const apiKey = process.env.GEMINI_API_KEY
+      if (!apiKey) {
+        throw new Error("AI is not set in environment variables")
+      }
+
+      const openai = new OpenAI({
+        apiKey: apiKey,
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      })
+
+      const response = await openai.chat.completions.create({
+        model: "gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+      })
+
+      const text = response.choices[0]?.message?.content
+      if (text) {
+        try {
+          captions = JSON.parse(text)
+          if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
+            throw new Error("Invalid captions format from API")
+          }
+        } catch (error) {
+          const jsonMatch = text.match(/\[[\s\S]*\]/)
+          if (jsonMatch) {
+            captions = JSON.parse(jsonMatch[0])
+            if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
+              throw new Error("Invalid captions format in API fallback parsing")
+            }
+          }
+        }
       }
     } catch (error) {
-      const jsonMatch = text.match(/\[[\s\S]*\]/)
-      if (!jsonMatch) {
-        throw new Error("Failed to parse captions from AI response")
+      console.warn("API failed, falling back to Hugging Face API:", error)
+    }
+
+    if (!captions) {
+      const huggingFaceApiUrl = "https://router.huggingface.co/novita/v3/openai/chat/completions"
+      const huggingFaceHeaders = {
+        "Authorization": "Bearer {process.env.AI_API_KEY}",
+        "Content-Type": "application/json"
       }
-      captions = JSON.parse(jsonMatch[0])
-      if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
-        throw new Error("Invalid captions format in fallback parsing")
+
+      const huggingFacePayload = {
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        model: "deepseek/deepseek-v3-0324",
+        stream: false,
+        temperature: 0.7
+      }
+
+      try {
+        const response = await fetch(huggingFaceApiUrl, {
+          method: "POST",
+          headers: huggingFaceHeaders,
+          body: JSON.stringify(huggingFacePayload)
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || `API request failed (${response.status})`)
+        }
+
+        const data = await response.json()
+        const text = data.choices[0]?.message?.content
+        if (!text) {
+          throw new Error("No content returned from API")
+        }
+
+        try {
+          captions = JSON.parse(text)
+          if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
+            throw new Error("Invalid captions format from API")
+          }
+        } catch (error) {
+          const jsonMatch = text.match(/\[[\s\S]*\]/)
+          if (!jsonMatch) {
+            throw new Error("Failed to parse captions from API response")
+          }
+          captions = JSON.parse(jsonMatch[0])
+          if (!Array.isArray(captions) || captions.length !== 5 || !captions.every((c: any) => c.option && c.text)) {
+            throw new Error("Invalid captions format in API fallback parsing")
+          }
+        }
+      } catch (error) {
+        console.error("API failed:", error)
+        throw new Error("APIs failed to generate captions")
       }
     }
 
