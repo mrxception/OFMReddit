@@ -7,6 +7,7 @@ import { PostsList } from "@/components/caption-generator/posts-list"
 import { CaptionResults } from "@/components/caption-generator/caption-results"
 import { AiBotStatus } from "@/components/caption-generator/ai-bot-status"
 import { useToast } from "@/hooks/use-toast"
+import { Bot, ThumbsUp, Sparkles } from "lucide-react"
 
 export type Post = {
   id: string
@@ -247,7 +248,21 @@ export default function CaptionGeneratorPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <p>Loading posts...</p>
+        <div className="flex items-center justify-center gap-3 flex-col text-center">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-primary-foreground bg-primary animate-bounce">
+              <Bot className="w-6 h-6" />
+            </div>
+            <div className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
+            <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse" />
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+            </div>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed">Loading</p>
+        </div>
       </div>
     )
   }
