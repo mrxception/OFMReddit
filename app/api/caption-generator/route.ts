@@ -80,7 +80,6 @@ Based on inferred category, prioritize these Caption Archetypes:
 - 40-70 characters optimized for mobile
 - MUST include at least one relevant emoji
 - Use sentence case or lowercase, NEVER ALL CAPS
-- Append gender tag in format: (${gender.charAt(0).toLowerCase()})
 
 ## Forbidden Elements
 - NEVER start with "Just"
@@ -114,11 +113,11 @@ Use appropriate kaomoji for mood: (˶˃ ᵕ ˂˶)♡ (cute), (⁄⁄>⁄ ▽ ⁄
 # OUTPUT FORMAT
 Return ONLY a valid JSON array with NO text before or after:
 [
-  {"option": 1, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 2, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 3, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 4, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 5, "text": "caption text here (${gender.charAt(0).toLowerCase()})"}
+  {"option": 1, "text": "caption text here"},
+  {"option": 2, "text": "caption text here"},
+  {"option": 3, "text": "caption text here"},
+  {"option": 4, "text": "caption text here"},
+  {"option": 5, "text": "caption text here"}
 ]
 
 Generate 5 strategically diverse captions that follow the Apex framework and maximize engagement potential.`
@@ -204,7 +203,6 @@ Example: "[F24] Oiled up and ready.", "put them in your mouth and suck them"
 - 40-70 characters optimized for mobile
 - MUST include at least one relevant emoji
 - Use sentence case or lowercase, NEVER ALL CAPS
-- Append gender tag: (${gender.charAt(0).toLowerCase()})
 - If subreddit rules require tags like [OC] or [SELF], include them
 
 ## Forbidden Elements
@@ -266,17 +264,17 @@ Reference these proven patterns:
 # OUTPUT FORMAT
 Return ONLY a valid JSON array with NO text before or after:
 [
-  {"option": 1, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 2, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 3, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 4, "text": "caption text here (${gender.charAt(0).toLowerCase()})"},
-  {"option": 5, "text": "caption text here (${gender.charAt(0).toLowerCase()})"}
+  {"option": 1, "text": "caption text here"},
+  {"option": 2, "text": "caption text here"},
+  {"option": 3, "text": "caption text here"},
+  {"option": 4, "text": "caption text here"},
+  {"option": 5, "text": "caption text here"}
 ]
 
 Generate 5 strategically diverse captions that follow the Apex framework, are optimized for the specific subreddit category, and maximize engagement potential.`
     }
 
-    const apiKey = process.env.GEMINI_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyCQhwW3s0G5kqymbQeTRXDcjbGH4zKU53U"
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not set in environment variables")
     }
