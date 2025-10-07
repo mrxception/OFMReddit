@@ -45,7 +45,7 @@ Your entire strategic and creative framework is derived exclusively from your in
 - Phase IV (REVISED): Curated library of examples, preferred vocabulary, niche slang, and Kaomoji Library
 
 # CHAIN OF THOUGHT REASONING PROTOCOL (COS)
-You MUST follow these 10 steps internally before generating:
+You MUST follow these 10 steps SILENTLY AND INTERNALLY before generating. DO NOT include your reasoning in the output:
 
 **Step 1: Parse Input Data**
 Review all provided information:
@@ -415,7 +415,7 @@ Your entire strategic and creative framework is derived exclusively from your in
 - Phase IV (REVISED): Curated library of examples, preferred vocabulary, niche slang, and Kaomoji Library
 
 # CHAIN OF THOUGHT REASONING PROTOCOL (COS)
-You MUST follow these 10 steps internally before generating:
+You MUST follow these 10 steps SILENTLY AND INTERNALLY before generating. DO NOT include your reasoning in the output:
 
 **Step 1: Parse Input Data**
 Review all provided information:
@@ -763,18 +763,22 @@ Use sparingly (1-2 max per set) for appropriate archetypes:
 - Compliance: Strictly adhere to all user-provided Subreddit Rules
 - Gender Tag: Only append if user explicitly provides gender (not in this case)
 
-# OUTPUT FORMAT
-Return ONLY a valid JSON array with exactly 3 captions:
+# OUTPUT FORMAT - CRITICAL INSTRUCTIONS
+IMPORTANT: Your response MUST contain ONLY the JSON array below. Do NOT include any reasoning, explanations, or other text.
+DO NOT write "[analyze..." or any other text before the JSON.
+DO NOT include your Chain of Thought reasoning in the output.
+The ONLY acceptable output is this exact JSON structure:
+
 [
   {"option": 1, "text": "caption text here"},
   {"option": 2, "text": "caption text here"},
   {"option": 3, "text": "caption text here"}
 ]
 
-Now generate 3 captions following the complete Apex framework with full Chain of Thought reasoning.`
+Now generate 3 captions following the complete Apex framework. Remember: OUTPUT ONLY THE JSON ARRAY, NOTHING ELSE.`
     }
 
-    const apiKey = process.env.GEMINI_API_KEY 
+    const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not set in environment variables")
     }
@@ -829,6 +833,7 @@ Now generate 3 captions following the complete Apex framework with full Chain of
 
     const data = await response.json()
 
+    
     if (data.promptFeedback?.blockReason) {
       throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
     }
@@ -840,18 +845,29 @@ Now generate 3 captions following the complete Apex framework with full Chain of
 
     let captions
     try {
+      
       captions = JSON.parse(text)
       if (!Array.isArray(captions) || captions.length !== 3 || !captions.every((c: any) => c.option && c.text)) {
         throw new Error("Invalid captions format")
       }
     } catch (error) {
-      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      console.log("Failed to parse as pure JSON, attempting to extract JSON from text:", text.substring(0, 200))
+
+      
+      const jsonMatch = text.match(/\[\s*\{[\s\S]*?\}\s*\]/)
       if (!jsonMatch) {
-        throw new Error("Failed to parse captions from AI response")
+        console.error("No JSON array found in response:", text)
+        throw new Error(`Failed to parse captions from AI response. Response started with: ${text.substring(0, 100)}`)
       }
-      captions = JSON.parse(jsonMatch[0])
-      if (!Array.isArray(captions) || captions.length !== 3 || !captions.every((c: any) => c.option && c.text)) {
-        throw new Error("Invalid captions format in fallback parsing")
+
+      try {
+        captions = JSON.parse(jsonMatch[0])
+        if (!Array.isArray(captions) || captions.length !== 3 || !captions.every((c: any) => c.option && c.text)) {
+          throw new Error("Invalid captions format in fallback parsing")
+        }
+      } catch (parseError) {
+        console.error("Failed to parse extracted JSON:", jsonMatch[0])
+        throw new Error("Failed to parse captions from AI response - invalid JSON structure")
       }
     }
 
