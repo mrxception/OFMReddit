@@ -85,9 +85,9 @@ Example:
 ]`
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyCQhwW3s0G5kqymbQeTRXDcjbGH4zKU53U"
+    const apiKey = process.env.GEMINI_API_KEY 
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set in environment variables")
+      throw new Error("AI is not set in environment variables")
     }
 
     const response = await fetch(
@@ -140,7 +140,6 @@ Example:
 
     const data = await response.json()
 
-    // Check if response was blocked
     if (data.promptFeedback?.blockReason) {
       throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
     }
