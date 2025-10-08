@@ -12,6 +12,7 @@ import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { FormData } from "@/app/caption-generator/page"
+import { Upload } from "lucide-react"
 
 type CaptionFormProps = {
   onGenerate: (data: FormData) => void
@@ -56,6 +57,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     contentType: "picture",
   })
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({})
+  const [dragCounter, setDragCounter] = useState(0)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisStatus, setAnalysisStatus] = useState<"idle" | "analyzing" | "success" | "error">("idle")
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -71,29 +75,23 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
   useEffect(() => {
     const errors: Partial<Record<keyof FormData, string>> = {}
 
-
     if (!formData.physicalFeatures.trim()) {
       errors.physicalFeatures = "Creator's niche/features is required"
     }
-
 
     if (!formData.gender) {
       errors.gender = "Gender is required"
     }
 
-
     if (formData.mode === "advanced") {
-
       if (!formData.visualContext.trim()) {
         errors.visualContext = "Visual context is required"
       }
-
 
       if (!formData.subredditName.trim() && !formData.subredditType) {
         errors.subredditType = "Subreddit name or category is required"
       }
     }
-
 
     setFormErrors(errors)
   }, [formData])
@@ -123,10 +121,179 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     setFormData((prev) => ({ ...prev, contentType: value as "picture" | "picture set" | "GIF/short video" }))
   }
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragCounter((prev) => prev + 1)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragCounter((prev) => {
+      const newCount = prev - 1
+      if (newCount === 0) {
+        
+      }
+      return newCount
+    })
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragCounter(0)
+
+    console.log("Image dropped")
+
+    const files = Array.from(e.dataTransfer.files)
+    const imageFile = files.find((file) => file.type.startsWith("image/"))
+
+    if (!imageFile) {
+      console.log("No image file found in drop")
+      setAnalysisStatus("error")
+      setTimeout(() => setAnalysisStatus("idle"), 3000)
+      return
+    }
+
+    console.log("Image file found:", imageFile.name, imageFile.type)
+    await analyzeImage(imageFile)
+  }
+
+  const analyzeImage = async (file: File) => {
+    console.log("Starting image analysis")
+    setIsAnalyzing(true)
+    setAnalysisStatus("analyzing")
+
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        throw new Error("Not authenticated. Please log in.")
+      }
+
+      const reader = new FileReader()
+
+      reader.onload = async () => {
+        console.log("Image loaded, converting to base64")
+        const base64Image = reader.result as string
+
+        console.log("Calling /api/analyze-image")
+        const response = await fetch("/api/analyze-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ imageData: base64Image }),
+        })
+
+        console.log("API response status:", response.status)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("API error:", errorText)
+          throw new Error(`Failed to analyze image: ${errorText}`)
+        }
+
+        const data = await response.json()
+        console.log("Analysis result:", data)
+
+        const analysis = data.analysis
+        setFormData((prev) => ({
+          ...prev,
+          physicalFeatures: analysis.physicalFeatures || prev.physicalFeatures,
+          gender: analysis.gender || prev.gender,
+          visualContext: analysis.visualContext || prev.visualContext,
+          subredditType: analysis.subredditType || prev.subredditType,
+          captionMood: analysis.captionMood || prev.captionMood,
+          contentType: analysis.contentType || prev.contentType,
+        }))
+
+        console.log("Form fields updated successfully")
+        setAnalysisStatus("success")
+        setTimeout(() => setAnalysisStatus("idle"), 3000)
+      }
+
+      reader.onerror = () => {
+        console.error("FileReader error")
+        throw new Error("Failed to read image file")
+      }
+
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error("Error analyzing image:", error)
+      setAnalysisStatus("error")
+      setTimeout(() => setAnalysisStatus("idle"), 3000)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const isDragging = dragCounter > 0
+
   return (
     <TooltipProvider>
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl mx-auto">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6 max-w-3xl mx-auto"
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {error && <div className="p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
+
+        <div
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+            isDragging
+              ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
+              : analysisStatus === "success"
+                ? "border-green-500 bg-green-50"
+                : analysisStatus === "error"
+                  ? "border-red-500 bg-red-50"
+                  : "border-[var(--border)] bg-[var(--muted)]/30"
+          }`}
+        >
+          <div className="flex flex-col items-center gap-2">
+            <Upload
+              className={`w-8 h-8 ${
+                isDragging
+                  ? "text-[var(--primary)]"
+                  : analysisStatus === "success"
+                    ? "text-green-500"
+                    : analysisStatus === "error"
+                      ? "text-red-500"
+                      : "text-[var(--muted-foreground)]"
+              }`}
+            />
+            <p
+              className={`text-sm font-medium ${
+                isDragging
+                  ? "text-[var(--primary)]"
+                  : analysisStatus === "success"
+                    ? "text-green-600"
+                    : analysisStatus === "error"
+                      ? "text-red-600"
+                      : "text-[var(--muted-foreground)]"
+              }`}
+            >
+              {analysisStatus === "analyzing"
+                ? "🔍 Analyzing image... Please wait"
+                : analysisStatus === "success"
+                  ? "✅ Image analyzed successfully! Form fields updated"
+                  : analysisStatus === "error"
+                    ? "❌ Failed to analyze image. Please try again"
+                    : isDragging
+                      ? "📥 Drop image here to analyze"
+                      : "💡 Tip: Drag and drop an image here to automatically analyze and fill the form"}
+            </p>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <Label className="text-[var(--card-foreground)] text-lg">Mode</Label>
@@ -342,13 +509,11 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   className="flex space-x-2"
                   disabled={isGenerating}
                 >
-                  {(
-                    [
-                      { value: "grounded", label: "Grounded Scenario" },
-                      { value: "fantasy", label: "Fantasy / Roleplay" },
-                      { value: "kink", label: "Kink-Specific" },
-                    ] as const
-                  ).map((option) => (
+                  {[
+                    { value: "grounded", label: "Grounded Scenario" },
+                    { value: "fantasy", label: "Fantasy / Roleplay" },
+                    { value: "kink", label: "Kink-Specific" },
+                  ].map((option) => (
                     <div key={option.value} className="flex items-center space-x-2">
                       <RadioGroupItem
                         value={option.value}
@@ -371,20 +536,22 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               <Label className="text-[var(--card-foreground)] text-lg">Subreddit Context</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Label htmlFor="subredditName" className="w-fit text-[var(--card-foreground)]">
-                        Subreddit Name{" "}
-                        <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
-                      </Label>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-xs">
-                      <p>
-                        Enter the subreddit name for tailored captions (r/example). This will auto-determine the
-                        subreddit type.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <div className="flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Label htmlFor="subredditName" className="w-fit text-[var(--card-foreground)] cursor-help">
+                          Subreddit Name
+                        </Label>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p>
+                          Enter the subreddit name for tailored captions (r/example). This will auto-determine the
+                          subreddit type.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
+                  </div>
                   <Input
                     id="subredditName"
                     placeholder="r/example"
@@ -528,16 +695,19 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </div>
 
             <div className="space-y-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Label htmlFor="mood" className="w-fit text-[var(--card-foreground)] text-lg">
-                    Caption Mood
-                  </Label>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-xs">
-                  <p>This sets the emotional tone for your captions. playful, confident, shy, commanding</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Label htmlFor="mood" className="w-fit text-[var(--card-foreground)] text-lg cursor-help">
+                      Caption Mood
+                    </Label>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs">
+                    <p>This sets the emotional tone for your captions. playful, confident, shy, commanding</p>
+                  </TooltipContent>
+                </Tooltip>
+                <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
+              </div>
               <Input
                 id="mood"
                 placeholder="playful, confident, shy, commanding"
@@ -549,16 +719,19 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </div>
 
             <div className="space-y-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Label htmlFor="rules" className="w-fit text-[var(--card-foreground)] text-lg">
-                    Rules
-                  </Label>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-xs">
-                  <p>Specify any title rules for the particular subreddit you're posting to. gender tag</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Label htmlFor="rules" className="w-fit text-[var(--card-foreground)] text-lg cursor-help">
+                      Rules
+                    </Label>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs" side="right">
+                    <p>Specify any title rules for the particular subreddit you're posting to. gender tag</p>
+                  </TooltipContent>
+                </Tooltip>
+                <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
+              </div>
               <Input
                 id="rules"
                 placeholder="gender tag"
@@ -577,25 +750,29 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
           >
             <div
-              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
-                } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${
+                formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
+              } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
               role="switch"
               aria-checked={formData.isInteractive}
               aria-disabled={isGenerating}
             >
               <span
-                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${
+                  formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
+                }`}
               />
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${
+                  formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
+                }`}
               >
                 ON
               </span>
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${
+                  !formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
+                }`}
               >
                 OFF
               </span>
@@ -608,27 +785,23 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs" side="right">
                   <p>
-                    Enable to generate interactive/clickbait captions (e.g., “Would you
-                    introduce me to your parents?”) that encourage comments like “yes” or
-                    “no”.
+                    Enable to generate interactive/clickbait captions (e.g., "Would you introduce me to your parents?")
+                    that encourage comments like "yes" or "no".
                   </p>
                 </TooltipContent>
               </Tooltip>
 
-              <span className="text-sm font-normal">
-                (beware some subreddits do not allow questions)
-              </span>
+              <span className="text-sm font-normal">(beware some subreddits do not allow questions)</span>
             </Label>
           </div>
         </div>
 
-
         <Button
           type="submit"
-          disabled={isGenerating || Object.keys(formErrors).length > 0}
+          disabled={isGenerating || isAnalyzing || Object.keys(formErrors).length > 0}
           className="w-full bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] h-12 text-base font-semibold disabled:opacity-50 mb-10"
         >
-          {isGenerating ? "Generating..." : "Generate Captions"}
+          {isGenerating ? "Generating..." : isAnalyzing ? "Analyzing Image..." : "Generate Captions"}
         </Button>
       </form>
     </TooltipProvider>

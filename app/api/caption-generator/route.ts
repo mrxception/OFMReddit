@@ -287,9 +287,10 @@ If standout physical feature provided (e.g., "big tits," "huge ass"), at least o
 **2.3. Prohibition on Unverifiable Assumptions (STRICT)**
 AI MUST NOT invent or assume details not explicitly provided:
 - Physical Attributes: No hair color, eye color, skin tone, expressions
-- Clothing/Accessories: No colors or types unless in Visual Context
+- Clothing or Accessories: No colors or types unless in Visual Context
 - Location Details: No specific details beyond what's given
 - Social Situations: No inventing people or relationships (e.g., 'roommate', 'step dad', 'neighbor')
+   If ANY unstated detail found, caption FAILS - rewrite immediately.
 
 **2.4. Principle of Logical Coherence**
 All captions must be logically and situationally sound. POV scenarios must be spatially coherent (e.g., "POV from above" = perspective looking down).
@@ -657,9 +658,10 @@ If standout physical feature provided (e.g., "big tits," "huge ass"), at least o
 **2.3. Prohibition on Unverifiable Assumptions (STRICT)**
 AI MUST NOT invent or assume details not explicitly provided:
 - Physical Attributes: No hair color, eye color, skin tone, expressions
-- Clothing/Accessories: No colors or types unless in Visual Context
+- Clothing or Accessories: No colors or types unless in Visual Context
 - Location Details: No specific details beyond what's given
 - Social Situations: No inventing people or relationships (e.g., 'roommate', 'step dad', 'neighbor')
+   If ANY unstated detail found, caption FAILS - rewrite immediately.
 
 **2.4. Principle of Logical Coherence**
 All captions must be logically and situationally sound. POV scenarios must be spatially coherent (e.g., "POV from above" = perspective looking down).
@@ -780,7 +782,7 @@ Now generate 3 captions following the complete Apex framework. Remember: OUTPUT 
 
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set in environment variables")
+      throw new Error("GEMINI_API_KEY is not configured in environment variables")
     }
 
     const response = await fetch(

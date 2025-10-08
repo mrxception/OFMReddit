@@ -18,9 +18,9 @@ export function PostsList({ posts, selectedPostId, onSelectPost, onAddPost, onRe
       <div className="flex flex-col overflow-y-auto">
         {posts.map((post) => (
           <div key={post.id} className="relative group">
-            <button
+            <div
               onClick={() => onSelectPost(post.id)}
-              className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors ${
+              className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors cursor-pointer ${
                 post.id === selectedPostId
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted"
@@ -39,7 +39,7 @@ export function PostsList({ posts, selectedPostId, onSelectPost, onAddPost, onRe
               >
                 <Trash2 className="w-4 h-4" />
               </button>
-            </button>
+            </div>
           </div>
         ))}
       </div>
