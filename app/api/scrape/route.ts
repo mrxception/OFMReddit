@@ -104,6 +104,58 @@ async function getAccessToken(): Promise<string> {
   return data.access_token
 }
 
+const SUBS_TTL = 6 * 60 * 60 * 1000;
+const SUBS_CACHE: Map<string, { v: number; t: number }> =
+  (globalThis as any).__SUBS_CACHE__ ?? ((globalThis as any).__SUBS_CACHE__ = new Map());
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+let subCounts: Map<string, number> | undefined;
+
+async function fetchSubredditSubs(name: string, token: string): Promise<number> {
+  const key = String(name || "").toLowerCase();
+  const now = Date.now();
+  const hit = SUBS_CACHE.get(key);
+  if (hit && now - hit.t < SUBS_TTL) return hit.v;
+
+  await sleep(250);
+
+  const url = `https://oauth.reddit.com/r/${encodeURIComponent(name)}/about`;
+  let tok = token;
+  let attempt = 0;
+  let delay = 400;
+
+  while (attempt < 3) {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${tok}`,
+        "User-Agent": process.env.REDDIT_USER_AGENT || "SubredditAnalyzer/1.0",
+      },
+    });
+
+    if (res.status === 401) {
+      tok = await getAccessToken();
+      attempt++;
+      await sleep(delay);
+      delay *= 2;
+      continue;
+    }
+
+    if (!res.ok) {
+      attempt++;
+      await sleep(delay);
+      delay *= 2;
+      continue;
+    }
+
+    const data = await res.json();
+    const v = data?.data?.subscribers ?? 0;
+    SUBS_CACHE.set(key, { v, t: now });
+    return v;
+  }
+  subCounts = subCounts ?? new Map();
+  return 0;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const sid = searchParams.get("sid")
@@ -258,28 +310,29 @@ export async function POST(request: NextRequest) {
       stats.lastPostDate = Math.max(stats.lastPostDate, post.data.created_utc)
     }
 
-    const subredditStats: SubredditRow[] = Array.from(subredditMap.values()).map((stats) => {
-      const avgUpvotes = stats.totalPosts > 0 ? stats.totalUpvotes / stats.totalPosts : 0
-      const avgComments = stats.totalPosts > 0 ? stats.totalComments / stats.totalPosts : 0
-      const sortedScores = stats.posts.map((p) => p.score).sort((a, b) => a - b)
-      const medianUpvotes =
-        sortedScores.length > 0
-          ? sortedScores.length % 2 === 0
-            ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
-            : sortedScores[Math.floor(sortedScores.length / 2)]
-          : 0
+    let subredditStats: (SubredditRow & { Subreddit_Subscribers?: number })[] =
+      Array.from(subredditMap.values()).map((stats) => {
+        const avgUpvotes = stats.totalPosts > 0 ? stats.totalUpvotes / stats.totalPosts : 0
+        const avgComments = stats.totalPosts > 0 ? stats.totalComments / stats.totalPosts : 0
+        const sortedScores = stats.posts.map((p) => p.score).sort((a, b) => a - b)
+        const medianUpvotes =
+          sortedScores.length > 0
+            ? sortedScores.length % 2 === 0
+              ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
+              : sortedScores[Math.floor(sortedScores.length / 2)]
+            : 0
 
-      return {
-        Subreddit: stats.subreddit,
-        Total_Posts: stats.totalPosts,
-        Avg_Upvotes_Per_Post: Math.round(avgUpvotes * 100) / 100,
-        Avg_Comments_Per_Post: Math.round(avgComments * 100) / 100,
-        Median_Upvotes: Math.round(medianUpvotes * 100) / 100,
-        Total_Upvotes: stats.totalUpvotes,
-        Total_Comments: stats.totalComments,
-        LastDateTimeUTC: new Date(stats.lastPostDate * 1000).toISOString(),
-      }
-    })
+        return {
+          Subreddit: stats.subreddit,
+          Total_Posts: stats.totalPosts,
+          Avg_Upvotes_Per_Post: Math.round(avgUpvotes * 100) / 100,
+          Avg_Comments_Per_Post: Math.round(avgComments * 100) / 100,
+          Median_Upvotes: Math.round(medianUpvotes * 100) / 100,
+          Total_Upvotes: stats.totalUpvotes,
+          Total_Comments: stats.totalComments,
+          LastDateTimeUTC: new Date(stats.lastPostDate * 1000).toISOString(),
+        }
+      })
 
     subredditStats.sort((a, b) => b.Avg_Upvotes_Per_Post - a.Avg_Upvotes_Per_Post)
 
@@ -289,6 +342,45 @@ export async function POST(request: NextRequest) {
     const datasetSpanDays = Math.ceil((maxDate - minDate) / (60 * 60 * 24))
 
     const previewTop10 = subredditStats.slice(0, 10)
+
+    if (inclSubs) {
+      sessions.set(sid, {
+        phase: "Fetching subreddit member counts…",
+        fetched: 0,
+        total: subredditStats.length,
+        done: false,
+      });
+
+      subCounts = new Map<string, number>();
+      let i = 0;
+      for (const name of subredditStats.map((x) => x.Subreddit)) {
+        const count = await fetchSubredditSubs(name, accessToken);
+        subCounts.set(name, count);
+        i++;
+
+        sessions.set(sid, {
+          phase: "Fetching subreddit member counts…",
+          fetched: i,
+          total: subredditStats.length,
+          done: false,
+        });
+
+        await sleep(120);
+      }
+
+      subredditStats = subredditStats.map((r) => ({
+        ...r,
+        Subreddit_Subscribers: subCounts?.get(r.Subreddit) ?? 0,
+      }));
+
+      sessions.set(sid, {
+        phase: "Building file…",
+        fetched: posts.length,
+        total: posts.length,
+        done: false,
+      });
+    }
+
 
     sessions.set(sid, { phase: "Generating Excel file…", fetched: posts.length, total: posts.length, done: false })
 
@@ -302,16 +394,18 @@ export async function POST(request: NextRequest) {
       inclMed,
       inclVote,
       inclComm,
+      inclSubs,
     })
 
     const rawRows: RawPostRow[] = posts.map((p) => ({
       Subreddit: p.data.subreddit,
       Upvotes: p.data.score,
       Comments: p.data.num_comments,
+      Subreddit_Subscribers: subCounts?.get(p.data.subreddit) ?? 0,
       LastDate: toExcelUTCDate(p.data.created_utc),
     }))
 
-    const { buffer: rawBuffer, filename: rawFilename } = await buildRawWorkbook(rawRows, username)
+    const { buffer: rawBuffer, filename: rawFilename } = await buildRawWorkbook(rawRows, username, { inclSubs })
 
     const analysisId = crypto.randomUUID()
     files.set(analysisId, { buffer, filename, createdAt: Date.now() })
