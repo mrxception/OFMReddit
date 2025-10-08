@@ -8,6 +8,7 @@ export interface SubredditRow {
   Median_Upvotes?: number
   Total_Upvotes?: number
   Total_Comments?: number
+  Subreddit_Subscribers?: number
   LastDateTimeUTC: string
 }
 
@@ -16,11 +17,12 @@ export interface BuildWorkbookOptions {
   inclMed?: number | boolean
   inclVote?: number | boolean
   inclComm?: number | boolean
+  inclSubs?: number | boolean
 }
 
 export async function buildWorkbook(
   rows: SubredditRow[],
-  { username, inclMed = 0, inclVote = 0, inclComm = 0 }: BuildWorkbookOptions
+  { username, inclMed = 0, inclVote = 0, inclComm = 0 , inclSubs = 0}: BuildWorkbookOptions
 ): Promise<{ buffer: Buffer; filename: string }> {
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet("Subreddit Analysis")
@@ -41,7 +43,15 @@ export async function buildWorkbook(
   if (inclComm) {
     columns.push({ header: "Total Comments", key: "Total_Comments", width: 18 })
   }
-
+  if (inclSubs) {
+    const colDef = { header: "Subreddit Subscribers", key: "Subreddit_Subscribers", width: 22 }
+    const idx = columns.findIndex(c => c.key === "Total_Comments")
+    if (idx !== -1) {
+      columns.splice(idx + 1, 0, colDef)  
+    } else {
+      columns.push(colDef)              
+    }
+  }
   columns.push({ header: "Last Post Date (UTC)", key: "LastDateTimeUTC", width: 22 })
   worksheet.columns = columns as any
 
