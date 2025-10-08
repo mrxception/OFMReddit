@@ -21,7 +21,7 @@ export type Caption = {
 }
 
 export type FormData = {
-  mode: "keywords" | "advanced"
+  mode: "keywords" | "advanced" | "quick"
   physicalFeatures: string
   gender: "female" | "male" | "trans"
   subredditType: "generalist" | "body-specific" | "kink-specific" | "aesthetic"
