@@ -88,7 +88,7 @@ Respond ONLY with a JSON object in this exact format:
             },
           ],
           generationConfig: {
-            temperature: 1,
+            temperature: 0.4,
             maxOutputTokens: 1024,
           },
           safetySettings: [
