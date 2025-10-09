@@ -116,8 +116,12 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof FormData) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }))
-  }
+    setFormData((prev) => ({
+      ...prev,
+      [field]: e.target.value,
+      ...(field === "subredditName" && e.target.value.trim() ? { subredditType: "" as FormData["subredditType"] } : {})
+    }))
+}
 
   const handleGenderChange = (value: string) => {
     setFormData((prev) => ({ ...prev, gender: value as "female" | "male" | "trans" }))
@@ -331,7 +335,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                     ? "border-green-500 bg-green-50"
                     : analysisStatus === "error"
                       ? "border-red-500 bg-red-50"
-                      : "border-[var(--border)] bg-[var(--muted)]/30"
+                      : analysisStatus === "analyzing"
+                        ? "border-yellow-500 bg-yellow-50"
+                        : "border-[var(--border)] bg-[var(--muted)]/30"
                 }`}
             >
               <div className="flex flex-col items-center gap-3">
@@ -342,7 +348,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                         ? "text-green-500"
                         : analysisStatus === "error"
                           ? "text-red-500"
-                          : "text-[var(--muted-foreground)]"
+                          : analysisStatus === "analyzing"
+                            ? "text-yellow-500"
+                            : "text-[var(--muted-foreground)]"
                     }`}
                 />
                 <p
@@ -352,7 +360,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                         ? "text-green-600"
                         : analysisStatus === "error"
                           ? "text-red-600"
-                          : "text-[var(--muted-foreground)]"
+                          : analysisStatus === "analyzing"
+                            ? "text-yellow-600"
+                            : "text-[var(--muted-foreground)]"
                     }`}
                 >
                   {analysisStatus === "analyzing"
@@ -387,7 +397,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             )}
 
             <div className="border-2 border-[var(--border)] rounded-lg p-5 bg-[var(--card)] space-y-6">
-              <h3 className="text-lg font-semibold text-[var(--card-foreground)]">Adjust Your Preferences</h3>
+              <h3 className="text-lg font-semibold text-[var(--card-foreground)]">Add Subreddit Context</h3>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -420,7 +430,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <div className="space-y-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Label className="w-fit text-[var(--card-foreground)]">Subreddit Category</Label>
+                      <Label className="w-fit mb-3 text-[var(--card-foreground)]">Subreddit Category</Label>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-xs">
                       <p className="mb-2">Determines the caption strategy based on the subreddit type.</p>
@@ -452,7 +462,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                         subredditType: v as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
                       }))
                     }
-                    disabled={isGenerating}
+                    disabled={isGenerating || !!formData.subredditName.trim()}
                   >
                     <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)]">
                       <SelectValue placeholder="Select Category" />
@@ -697,7 +707,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       ? "border-green-500 bg-green-50"
                       : analysisStatus === "error"
                         ? "border-red-500 bg-red-50"
-                        : "border-[var(--border)] bg-[var(--muted)]/30"
+                        : analysisStatus === "analyzing"
+                          ? "border-yellow-500 bg-yellow-50"
+                          : "border-[var(--border)] bg-[var(--muted)]/30"
                   }`}
               >
                 <div className="flex flex-col items-center gap-3">
@@ -708,7 +720,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                           ? "text-green-500"
                           : analysisStatus === "error"
                             ? "text-red-500"
-                            : "text-[var(--muted-foreground)]"
+                            : analysisStatus === "analyzing"
+                              ? "text-yellow-500"
+                              : "text-[var(--muted-foreground)]"
                       }`}
                   />
                   <p
@@ -718,7 +732,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                           ? "text-green-600"
                           : analysisStatus === "error"
                             ? "text-red-600"
-                            : "text-[var(--muted-foreground)]"
+                            : analysisStatus === "analyzing"
+                              ? "text-yellow-600"
+                              : "text-[var(--muted-foreground)]"
                       }`}
                   >
                     {analysisStatus === "analyzing"
@@ -872,7 +888,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             </div>
 
             <div className="space-y-3">
-              <Label className="text-[var(--card-foreground)] text-lg">Subreddit Context</Label>
+              <Label className="text-[var(--card-foreground)] text-lg">Add Subreddit Context</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-1">
@@ -903,7 +919,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <div className="space-y-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Label className="w-fit text-[var(--card-foreground)]">Subreddit Category</Label>
+                      <Label className="w-fit mb-3 text-[var(--card-foreground)]">Subreddit Category</Label>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-xs">
                       <p className="mb-2">Determines the caption strategy based on the subreddit type.</p>
@@ -935,7 +951,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                         subredditType: v as "generalist" | "body-specific" | "kink-specific" | "aesthetic",
                       }))
                     }
-                    disabled={isGenerating}
+                    disabled={isGenerating || !!formData.subredditName.trim()}
                   >
                     <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)]">
                       <SelectValue placeholder="Select Category" />
