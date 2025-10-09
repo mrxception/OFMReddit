@@ -17,8 +17,13 @@ export function getPool() {
   return pool
 }
 
-export async function query<T = any>(sql: string, params?: any[]): Promise<T> {
-  const pool = getPool()
-  const [results] = await pool.execute(sql, params)
-  return results as T
+export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  const db = getPool()
+  const [rows] = await db.execute(sql, params)
+  return rows as T[]
+}
+
+export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
+  const rows = await query<T>(sql, params)
+  return rows.length > 0 ? rows[0] : null
 }

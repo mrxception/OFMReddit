@@ -120,7 +120,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     setFormData((prev) => ({
       ...prev,
       [field]: e.target.value,
-      ...(field === "subredditName" && e.target.value.trim() ? { subredditType: "" as FormData["subredditType"] } : {})
+      ...(field === "subredditName" && e.target.value.trim() ? { subredditType: "" as FormData["subredditType"] } : {}),
     }))
   }
 
@@ -195,34 +195,44 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
         const base64Image = reader.result as string
         setImageUrl(base64Image)
 
-        const response = await fetch("/api/analyze-image", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ imageData: base64Image }),
-        })
+        try {
+          const response = await fetch("/api/analyze-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ imageData: base64Image }),
+          })
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Failed to analyze image: ${errorText}`)
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+            if (response.status === 503) {
+              throw new Error("The AI service is currently overloaded. Please try again in a few moments.")
+            } else if (response.status === 429) {
+              throw new Error("Too many requests. Please wait a moment and try again.")
+            } else {
+              throw new Error(errorData.error || `Failed to analyze image (${response.status})`)
+            }
+          }
+
+          const data = await response.json()
+          const analysis = data.analysis
+
+          setFormData((prev) => ({
+            ...prev,
+            physicalFeatures: analysis.physicalFeatures || prev.physicalFeatures,
+            gender: analysis.gender || prev.gender,
+            visualContext: analysis.visualContext || prev.visualContext,
+            contentType: analysis.contentType || prev.contentType,
+            captionMood: analysis.captionMood || prev.captionMood,
+          }))
+
+          setAnalysisStatus("success")
+          setTimeout(() => setAnalysisStatus("idle"), 3000)
+        } catch (fetchError: any) {
+          throw fetchError
         }
-
-        const data = await response.json()
-        const analysis = data.analysis
-
-        setFormData((prev) => ({
-          ...prev,
-          physicalFeatures: analysis.physicalFeatures || prev.physicalFeatures,
-          gender: analysis.gender || prev.gender,
-          visualContext: analysis.visualContext || prev.visualContext,
-          contentType: analysis.contentType || prev.contentType,
-          captionMood: analysis.captionMood || prev.captionMood,
-        }))
-
-        setAnalysisStatus("success")
-        setTimeout(() => setAnalysisStatus("idle"), 3000)
       }
 
       reader.onerror = () => {
@@ -232,6 +242,13 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
       reader.readAsDataURL(file)
     } catch (error: any) {
       console.error("Error analyzing image:", error)
+      if (typeof window !== "undefined" && (window as any).toast) {
+        ;(window as any).toast({
+          title: "Analysis Failed",
+          description: error.message || "Failed to analyze image. Please try again.",
+          variant: "destructive",
+        })
+      }
       setAnalysisStatus("error")
       setImageUrl(null)
       setFormData((prev) => ({
@@ -342,43 +359,46 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             onDrop={handleDrop}
           >
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${isDragging
-                ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
-                : analysisStatus === "success"
-                  ? "border-green-500 bg-green-50"
-                  : analysisStatus === "error"
-                    ? "border-red-500 bg-red-50"
-                    : analysisStatus === "analyzing"
-                      ? "border-yellow-500 bg-yellow-50"
-                      : "border-[var(--border)] bg-[var(--muted)]/30"
-                }`}
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+                isDragging
+                  ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
+                  : analysisStatus === "success"
+                    ? "border-green-500 bg-green-50"
+                    : analysisStatus === "error"
+                      ? "border-red-500 bg-red-50"
+                      : analysisStatus === "analyzing"
+                        ? "border-yellow-500 bg-yellow-50"
+                        : "border-[var(--border)] bg-[var(--muted)]/30"
+              }`}
             >
               <div className="flex flex-col items-center gap-3">
                 {analysisStatus === "analyzing" ? (
                   <Loader2 className="w-12 h-12 text-yellow-500 animate-spin" />
                 ) : (
                   <Upload
-                    className={`w-12 h-12 ${isDragging
-                      ? "text-[var(--primary)]"
-                      : analysisStatus === "success"
-                        ? "text-green-500"
-                        : analysisStatus === "error"
-                          ? "text-red-500"
-                          : "text-[var(--muted-foreground)]"
-                      }`}
+                    className={`w-12 h-12 ${
+                      isDragging
+                        ? "text-[var(--primary)]"
+                        : analysisStatus === "success"
+                          ? "text-green-500"
+                          : analysisStatus === "error"
+                            ? "text-red-500"
+                            : "text-[var(--muted-foreground)]"
+                    }`}
                   />
                 )}
                 <p
-                  className={`text-base font-medium ${isDragging
-                    ? "text-[var(--primary)]"
-                    : analysisStatus === "success"
-                      ? "text-green-600"
-                      : analysisStatus === "error"
-                        ? "text-red-600"
-                        : analysisStatus === "analyzing"
-                          ? "text-yellow-600"
-                          : "text-[var(--muted-foreground)]"
-                    }`}
+                  className={`text-base font-medium ${
+                    isDragging
+                      ? "text-[var(--primary)]"
+                      : analysisStatus === "success"
+                        ? "text-green-600"
+                        : analysisStatus === "error"
+                          ? "text-red-600"
+                          : analysisStatus === "analyzing"
+                            ? "text-yellow-600"
+                            : "text-[var(--muted-foreground)]"
+                  }`}
                 >
                   {analysisStatus === "analyzing"
                     ? "Analyzing image... Please wait"
@@ -396,10 +416,11 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             {imageUrl && !isAnalyzing && (
               <div className="relative w-full max-w-md mx-auto">
                 <img
-                  src={imageUrl}
+                  src={imageUrl || "/placeholder.svg"}
                   alt="Analyzed image"
-                  className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${isBlurred ? "blur-md" : ""
-                    }`}
+                  className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${
+                    isBlurred ? "blur-md" : ""
+                  }`}
                 />
                 <Button
                   type="button"
@@ -499,11 +520,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   className="w-full flex items-center justify-between bg-[var(--card)] hover:bg-[var(--secondary)] text-[var(--card-foreground)] font-semibold rounded-lg"
                 >
                   <span>Advanced Options</span>
-                  {isAdvancedMenuOpen ? (
-                    <ChevronUp className="w-5 h-5" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" />
-                  )}
+                  {isAdvancedMenuOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </Button>
 
                 {isAdvancedMenuOpen && (
@@ -556,16 +573,16 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                             <p>Optionally refines the caption's narrative to focus on a specific type of scenario.</p>
                             <ul className="list-disc pl-5 mt-2">
                               <li>
-                                <strong>Grounded Scenario</strong>: Generates captions describing a plausible, real-world
-                                scenario to feel authentic and relatable.
+                                <strong>Grounded Scenario</strong>: Generates captions describing a plausible,
+                                real-world scenario to feel authentic and relatable.
                               </li>
                               <li>
-                                <strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view experience
-                                by framing the content as a fantasy scenario.
+                                <strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view
+                                experience by framing the content as a fantasy scenario.
                               </li>
                               <li>
-                                <strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow, kink-focused
-                                audience to signal 'insider' knowledge.
+                                <strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow,
+                                kink-focused audience to signal 'insider' knowledge.
                               </li>
                             </ul>
                           </TooltipContent>
@@ -716,43 +733,46 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               onDrop={handleDrop}
             >
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${isDragging
-                  ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
-                  : analysisStatus === "success"
-                    ? "border-green-500 bg-green-50"
-                    : analysisStatus === "error"
-                      ? "border-red-500 bg-red-50"
-                      : analysisStatus === "analyzing"
-                        ? "border-yellow-500 bg-yellow-50"
-                        : "border-[var(--border)] bg-[var(--muted)]/30"
-                  }`}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+                  isDragging
+                    ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
+                    : analysisStatus === "success"
+                      ? "border-green-500 bg-green-50"
+                      : analysisStatus === "error"
+                        ? "border-red-500 bg-red-50"
+                        : analysisStatus === "analyzing"
+                          ? "border-yellow-500 bg-yellow-50"
+                          : "border-[var(--border)] bg-[var(--muted)]/30"
+                }`}
               >
                 <div className="flex flex-col items-center gap-3">
                   {analysisStatus === "analyzing" ? (
                     <Loader2 className="w-12 h-12 text-yellow-500 animate-spin" />
                   ) : (
                     <Upload
-                      className={`w-12 h-12 ${isDragging
-                        ? "text-[var(--primary)]"
-                        : analysisStatus === "success"
-                          ? "text-green-500"
-                          : analysisStatus === "error"
-                            ? "text-red-500"
-                            : "text-[var(--muted-foreground)]"
-                        }`}
+                      className={`w-12 h-12 ${
+                        isDragging
+                          ? "text-[var(--primary)]"
+                          : analysisStatus === "success"
+                            ? "text-green-500"
+                            : analysisStatus === "error"
+                              ? "text-red-500"
+                              : "text-[var(--muted-foreground)]"
+                      }`}
                     />
                   )}
                   <p
-                    className={`text-base font-medium ${isDragging
-                      ? "text-[var(--primary)]"
-                      : analysisStatus === "success"
-                        ? "text-green-600"
-                        : analysisStatus === "error"
-                          ? "text-red-600"
-                          : analysisStatus === "analyzing"
-                            ? "text-yellow-600"
-                            : "text-[var(--muted-foreground)]"
-                      }`}
+                    className={`text-base font-medium ${
+                      isDragging
+                        ? "text-[var(--primary)]"
+                        : analysisStatus === "success"
+                          ? "text-green-600"
+                          : analysisStatus === "error"
+                            ? "text-red-600"
+                            : analysisStatus === "analyzing"
+                              ? "text-yellow-600"
+                              : "text-[var(--muted-foreground)]"
+                    }`}
                   >
                     {analysisStatus === "analyzing"
                       ? "Analyzing image... Please wait"
@@ -770,10 +790,11 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               {imageUrl && !isAnalyzing && (
                 <div className="relative w-full max-w-md mx-auto">
                   <img
-                    src={imageUrl}
+                    src={imageUrl || "/placeholder.svg"}
                     alt="Analyzed image"
-                    className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${isBlurred ? "blur-md" : ""
-                      }`}
+                    className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${
+                      isBlurred ? "blur-md" : ""
+                    }`}
                   />
                   <Button
                     type="button"
@@ -908,11 +929,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 className="w-full flex items-center justify-between bg-[var(--card)] hover:bg-[var(--secondary)] text-[var(--card-foreground)] font-semibold rounded-lg"
               >
                 <span>Advanced Options</span>
-                {isContentDetailsOpen ? (
-                  <ChevronUp className="w-5 h-5" />
-                ) : (
-                  <ChevronDown className="w-5 h-5" />
-                )}
+                {isContentDetailsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               </Button>
 
               {isContentDetailsOpen && (
@@ -930,8 +947,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                           <TooltipContent side="right" className="max-w-xs">
                             <p>
                               Describe the main action, setting, or focus of the content. This is not for a literal
-                              description, but to provide creative inspiration for the captions. showering, sitting on gamer
-                              chair showing boobs, titty reveal in the garden.
+                              description, but to provide creative inspiration for the captions. showering, sitting on
+                              gamer chair showing boobs, titty reveal in the garden.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -953,8 +970,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                           </TooltipTrigger>
                           <TooltipContent side="right" className="max-w-xs">
                             <p>
-                              Specify the type of content to tailor the caption style. Influences how the caption describes
-                              the media.
+                              Specify the type of content to tailor the caption style. Influences how the caption
+                              describes the media.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -1037,12 +1054,12 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                               scenario to feel authentic and relatable.
                             </li>
                             <li>
-                              <strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view experience
-                              by framing the content as a fantasy scenario.
+                              <strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view
+                              experience by framing the content as a fantasy scenario.
                             </li>
                             <li>
-                              <strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow, kink-focused
-                              audience to signal 'insider' knowledge.
+                              <strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow,
+                              kink-focused audience to signal 'insider' knowledge.
                             </li>
                           </ul>
                         </TooltipContent>
@@ -1060,7 +1077,10 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                         ].map((option) => (
                           <div key={option.value} className="flex items-center space-x-2">
                             <RadioGroupItem value={option.value} id={`style-${option.value}`} />
-                            <Label htmlFor={`style-${option.value}`} className="text-[var(--card-foreground)] cursor-pointer">
+                            <Label
+                              htmlFor={`style-${option.value}`}
+                              className="text-[var(--card-foreground)] cursor-pointer"
+                            >
                               {option.label}
                             </Label>
                           </div>
@@ -1128,25 +1148,29 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
           >
             <div
-              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
-                } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${
+                formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
+              } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
               role="switch"
               aria-checked={formData.isInteractive}
               aria-disabled={isGenerating}
             >
               <span
-                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${
+                  formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
+                }`}
               />
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${
+                  formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
+                }`}
               >
                 ON
               </span>
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${
+                  !formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
+                }`}
               >
                 OFF
               </span>

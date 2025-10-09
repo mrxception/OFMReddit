@@ -4,15 +4,20 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Menu, X, Sun, Moon } from "lucide-react"
+import { Menu, X, Sun, Moon, Shield } from "lucide-react"
 
 const getInitialUser = () => {
   if (typeof window === "undefined") return null
   try {
     const token = localStorage.getItem("token")
     const userData = localStorage.getItem("user")
+    console.log("Navigation - Token exists:", !!token)
+    console.log("Navigation - User data:", userData)
     if (token && userData) {
-      return JSON.parse(userData)
+      const parsedUser = JSON.parse(userData)
+      console.log("Navigation - Parsed user:", parsedUser)
+      console.log("Navigation - isAdmin value:", parsedUser.isAdmin)
+      return parsedUser
     }
   } catch (error) {
     console.error("Failed to parse user data:", error)
@@ -112,8 +117,20 @@ export default function Navigation() {
                 >
                   Caption Generator
                 </Link>
+                {user.isAdmin && (
+                  <Link
+                    href="/admin"
+                    className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      pathname === "/admin"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Admin
+                  </Link>
+                )}
 
-                {/* Mobile burger button */}
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
@@ -189,6 +206,20 @@ export default function Navigation() {
             >
               Caption Generator
             </Link>
+            {user.isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  pathname === "/admin"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Shield className="w-4 h-4" />
+                Admin
+              </Link>
+            )}
             <div className="px-4 py-2 text-sm text-muted-foreground border-t border-border mt-2 pt-4">{user.email}</div>
           </div>
         )}

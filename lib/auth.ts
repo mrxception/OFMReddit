@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "******"
 export interface JWTPayload {
   userId: number
   email: string
+  isAdmin?: boolean
 }
 
 export function hashPassword(password: string): Promise<string> {
@@ -26,4 +27,12 @@ export function verifyToken(token: string): JWTPayload | null {
   } catch {
     return null
   }
+}
+
+export function verifyAdminToken(token: string): JWTPayload | null {
+  const payload = verifyToken(token)
+  if (!payload || !payload.isAdmin) {
+    return null
+  }
+  return payload
 }

@@ -21,6 +21,26 @@ export function CaptionResults({ posts, selectedPostId, onClearCaptions }: Capti
     await navigator.clipboard.writeText(text)
     setCopiedId(id)
     setTimeout(() => setCopiedId(null), 2000)
+
+    
+    const token = localStorage.getItem("token")
+    if (token) {
+      try {
+        await fetch("/api/captions/track-copy", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            postId: selectedPostId,
+            captionText: text,
+          }),
+        })
+      } catch (error) {
+        console.error("Failed to track copy:", error)
+      }
+    }
   }
 
   return (
