@@ -907,7 +907,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 onClick={toggleContentDetails}
                 className="w-full flex items-center justify-between bg-[var(--card)] hover:bg-[var(--secondary)] text-[var(--card-foreground)] font-semibold rounded-lg"
               >
-                <span>Content Details</span>
+                <span>Advanced Options</span>
                 {isContentDetailsOpen ? (
                   <ChevronUp className="w-5 h-5" />
                 ) : (
@@ -917,68 +917,71 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
               {isContentDetailsOpen && (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Label htmlFor="context" className="w-fit text-[var(--card-foreground)]">
-                            Visual Context <span className="text-red-500">*</span>
-                          </Label>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-xs">
-                          <p>
-                            Describe the main action, setting, or focus of the content. This is not for a literal
-                            description, but to provide creative inspiration for the captions. showering, sitting on gamer
-                            chair showing boobs, titty reveal in the garden.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <Textarea
-                        id="context"
-                        placeholder="showering, sitting on gamer chair showing boobs"
-                        value={formData.visualContext}
-                        onChange={(e) => handleChange(e, "visualContext")}
-                        className="bg-[var(--card)] border-[var(--border)] min-h-[80px]"
-                        disabled={isGenerating}
-                      />
-                    </div>
-                    <div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Label htmlFor="contentType" className="w-fit text-[var(--card-foreground)]">
-                            Content Type
-                          </Label>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-xs">
-                          <p>
-                            Specify the type of content to tailor the caption style. Influences how the caption describes
-                            the media.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <div className="space-y-3 border border-[var(--border)] h-[80px] bg-[var(--card)] rounded-lg mt-2 p-4">
-                        <RadioGroup
-                          value={formData.contentType}
-                          onValueChange={handleContentTypeChange}
-                          className="flex space-x-2"
+                  <div className="space-y-2">
+                    <Label className="text-[var(--card-foreground)] text-lg">Content Details</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Label htmlFor="context" className="w-fit text-[var(--card-foreground)]">
+                              Visual Context <span className="text-red-500">*</span>
+                            </Label>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p>
+                              Describe the main action, setting, or focus of the content. This is not for a literal
+                              description, but to provide creative inspiration for the captions. showering, sitting on gamer
+                              chair showing boobs, titty reveal in the garden.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Textarea
+                          id="context"
+                          placeholder="showering, sitting on gamer chair showing boobs"
+                          value={formData.visualContext}
+                          onChange={(e) => handleChange(e, "visualContext")}
+                          className="bg-[var(--card)] border-[var(--border)] min-h-[80px]"
                           disabled={isGenerating}
-                        >
-                          {[
-                            { value: "picture", label: "Picture" },
-                            { value: "picture set", label: "Picture Set" },
-                            { value: "GIF/short video", label: "GIF/Short Video" },
-                          ].map((option) => (
-                            <div key={option.value} className="flex items-center py-4 space-x-2">
-                              <RadioGroupItem value={option.value} id={`content-type-${option.value}`} />
-                              <Label
-                                htmlFor={`content-type-${option.value}`}
-                                className="text-[var(--card-foreground)] cursor-pointer"
-                              >
-                                {option.label}
-                              </Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
+                        />
+                      </div>
+                      <div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Label htmlFor="contentType" className="w-fit text-[var(--card-foreground)]">
+                              Content Type
+                            </Label>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p>
+                              Specify the type of content to tailor the caption style. Influences how the caption describes
+                              the media.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <div className="space-y-3 border border-[var(--border)] h-[80px] bg-[var(--card)] rounded-lg mt-2 p-4">
+                          <RadioGroup
+                            value={formData.contentType}
+                            onValueChange={handleContentTypeChange}
+                            className="flex space-x-2"
+                            disabled={isGenerating}
+                          >
+                            {[
+                              { value: "picture", label: "Picture" },
+                              { value: "picture set", label: "Picture Set" },
+                              { value: "GIF/short video", label: "GIF/Short Video" },
+                            ].map((option) => (
+                              <div key={option.value} className="flex items-center py-4 space-x-2">
+                                <RadioGroupItem value={option.value} id={`content-type-${option.value}`} />
+                                <Label
+                                  htmlFor={`content-type-${option.value}`}
+                                  className="text-[var(--card-foreground)] cursor-pointer"
+                                >
+                                  {option.label}
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
                       </div>
                     </div>
                   </div>
