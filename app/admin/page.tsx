@@ -508,8 +508,10 @@ export default function AdminPage() {
                         <td className="p-3">
                           <div>
                             <p className="text-sm font-medium">{user.email}</p>
-                            {user.is_admin && (
+                            {user.is_admin ? (
                               <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">Admin</span>
+                            ) : (
+                                <></>
                             )}
                           </div>
                         </td>
