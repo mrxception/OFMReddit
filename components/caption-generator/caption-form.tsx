@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { FormData } from "@/app/caption-generator/page"
-import { Upload } from "lucide-react"
+import { Upload, ChevronDown, ChevronUp } from "lucide-react"
 
 type CaptionFormProps = {
   onGenerate: (data: FormData) => void
@@ -62,6 +62,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
   const [analysisStatus, setAnalysisStatus] = useState<"idle" | "analyzing" | "success" | "error">("idle")
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [isBlurred, setIsBlurred] = useState(true)
+  const [isAdvancedMenuOpen, setIsAdvancedMenuOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -147,6 +148,10 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     setDragCounter((prev) => prev - 1)
   }
 
+  const toggleAdvancedMenu = () => {
+    setIsAdvancedMenuOpen((prev) => !prev)
+  }
+
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -179,7 +184,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
       reader.onload = async () => {
         const base64Image = reader.result as string
-        setImageUrl(base64Image) 
+        setImageUrl(base64Image)
 
         const response = await fetch("/api/analyze-image", {
           method: "POST",
@@ -320,38 +325,35 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             onDrop={handleDrop}
           >
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
-                isDragging
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${isDragging
                   ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
                   : analysisStatus === "success"
                     ? "border-green-500 bg-green-50"
                     : analysisStatus === "error"
                       ? "border-red-500 bg-red-50"
                       : "border-[var(--border)] bg-[var(--muted)]/30"
-              }`}
+                }`}
             >
               <div className="flex flex-col items-center gap-3">
                 <Upload
-                  className={`w-12 h-12 ${
-                    isDragging
+                  className={`w-12 h-12 ${isDragging
                       ? "text-[var(--primary)]"
                       : analysisStatus === "success"
                         ? "text-green-500"
                         : analysisStatus === "error"
                           ? "text-red-500"
                           : "text-[var(--muted-foreground)]"
-                  }`}
+                    }`}
                 />
                 <p
-                  className={`text-base font-medium ${
-                    isDragging
+                  className={`text-base font-medium ${isDragging
                       ? "text-[var(--primary)]"
                       : analysisStatus === "success"
                         ? "text-green-600"
                         : analysisStatus === "error"
                           ? "text-red-600"
                           : "text-[var(--muted-foreground)]"
-                  }`}
+                    }`}
                 >
                   {analysisStatus === "analyzing"
                     ? "Analyzing image... Please wait"
@@ -371,9 +373,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <img
                   src={imageUrl}
                   alt="Analyzed image"
-                  className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${
-                    isBlurred ? "blur-md" : ""
-                  }`}
+                  className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${isBlurred ? "blur-md" : ""
+                    }`}
                 />
                 <Button
                   type="button"
@@ -387,93 +388,6 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
             <div className="border-2 border-[var(--border)] rounded-lg p-5 bg-[var(--card)] space-y-6">
               <h3 className="text-lg font-semibold text-[var(--card-foreground)]">Adjust Your Preferences</h3>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
-                      <Label className="w-fit text-[var(--card-foreground)] text-lg">Degen Scale</Label>
-                      <div className="space-y-2 p-2">
-                        <Slider
-                          value={[formData.degenScale]}
-                          onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
-                          min={1}
-                          max={3}
-                          step={1}
-                          className="w-full [&>div]:h-6 [&>div]:cursor-pointer [&>div>span]:w-6 [&>div>span]:h-6"
-                          disabled={isGenerating}
-                        />
-                        <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
-                          <span>Suggestive</span>
-                          <span className="transform -translate-x-3">Direct</span>
-                          <span>Explicit</span>
-                        </div>
-                      </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
-                    <p>Adjusts the intensity of the caption's tone.</p>
-                    <ul className="list-disc pl-5 mt-2">
-                      <li>
-                        <strong>Suggestive</strong>: Subtle and hinting at content.
-                      </li>
-                      <li>
-                        <strong>Direct</strong>: Clear and straightforward language.
-                      </li>
-                      <li>
-                        <strong>Explicit</strong>: Bold and unambiguous phrasing.
-                      </li>
-                    </ul>
-                  </TooltipContent>
-                </Tooltip>
-
-                <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Label className="w-fit text-[var(--card-foreground)] text-lg">Creative Style</Label>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-xs">
-                      <p>Optionally refines the caption's narrative to focus on a specific type of scenario.</p>
-                      <ul className="list-disc pl-5 mt-2">
-                        <li>
-                          <strong>Grounded Scenario</strong>: Generates captions describing a plausible, real-world
-                          scenario to feel authentic and relatable.
-                        </li>
-                        <li>
-                          <strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view experience
-                          by framing the content as a fantasy scenario.
-                        </li>
-                        <li>
-                          <strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow, kink-focused
-                          audience to signal 'insider' knowledge.
-                        </li>
-                      </ul>
-                    </TooltipContent>
-                  </Tooltip>
-                  <RadioGroup
-                    value={formData.creativeStyle}
-                    onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
-                    className="flex space-x-2"
-                    disabled={isGenerating}
-                  >
-                    {[
-                      { value: "grounded", label: "Grounded Scenario" },
-                      { value: "fantasy", label: "Fantasy / Roleplay" },
-                      { value: "kink", label: "Kink-Specific" },
-                    ].map((option) => (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option.value} id={`quick-style-${option.value}`} />
-                        <Label
-                          htmlFor={`quick-style-${option.value}`}
-                          className="text-[var(--card-foreground)] cursor-pointer"
-                        >
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -554,51 +468,157 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Label htmlFor="mood" className="w-fit text-[var(--card-foreground)]">
-                        Caption Mood
-                      </Label>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs" side="right">
-                      <p>This sets the emotional tone for your captions. playful, confident, shy, commanding</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
-                </div>
-                <Input
-                  id="quick-mood"
-                  placeholder="playful, confident, shy, commanding"
-                  value={formData.captionMood}
-                  onChange={(e) => handleChange(e, "captionMood")}
-                  className="bg-[var(--card)] border-[var(--border)]"
-                  disabled={isGenerating}
-                />
-              </div>
+                <Button
+                  type="button"
+                  onClick={toggleAdvancedMenu}
+                  className="w-full flex items-center justify-between bg-[var(--card)] hover:bg-[var(--secondary)] text-[var(--card-foreground)] font-semibold rounded-lg"
+                >
+                  <span>Advanced Options</span>
+                  {isAdvancedMenuOpen ? (
+                    <ChevronUp className="w-5 h-5" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5" />
+                  )}
+                </Button>
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Label htmlFor="rules" className="w-fit text-[var(--card-foreground)]">
-                        Rules
-                      </Label>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs" side="right">
-                      <p>Specify any title rules for the particular subreddit you're posting to. gender tag</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
-                </div>
-                <Input
-                  id="quick-rules"
-                  placeholder="gender tag"
-                  value={formData.rules}
-                  onChange={(e) => handleChange(e, "rules")}
-                  className="bg-[var(--card)] border-[var(--border)]"
-                  disabled={isGenerating}
-                />
+                {isAdvancedMenuOpen && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
+                            <Label className="w-fit text-[var(--card-foreground)] text-lg">Degen Scale</Label>
+                            <div className="space-y-2 p-2">
+                              <Slider
+                                value={[formData.degenScale]}
+                                onValueChange={(value) => setFormData((prev) => ({ ...prev, degenScale: value[0] }))}
+                                min={1}
+                                max={3}
+                                step={1}
+                                className="w-full [&>div]:h-6 [&>div]:cursor-pointer [&>div>span]:w-6 [&>div>span]:h-6"
+                                disabled={isGenerating}
+                              />
+                              <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
+                                <span>Suggestive</span>
+                                <span className="transform -translate-x-3">Direct</span>
+                                <span>Explicit</span>
+                              </div>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p>Adjusts the intensity of the caption's tone.</p>
+                          <ul className="list-disc pl-5 mt-2">
+                            <li>
+                              <strong>Suggestive</strong>: Subtle and hinting at content.
+                            </li>
+                            <li>
+                              <strong>Direct</strong>: Clear and straightforward language.
+                            </li>
+                            <li>
+                              <strong>Explicit</strong>: Bold and unambiguous phrasing.
+                            </li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <div className="space-y-3 border border-[var(--border)] rounded-lg p-4">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Label className="w-fit text-[var(--card-foreground)] text-lg">Creative Style</Label>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p>Optionally refines the caption's narrative to focus on a specific type of scenario.</p>
+                            <ul className="list-disc pl-5 mt-2">
+                              <li>
+                                <strong>Grounded Scenario</strong>: Generates captions describing a plausible, real-world
+                                scenario to feel authentic and relatable.
+                              </li>
+                              <li>
+                                <strong>Fantasy / Roleplay</strong>: Creates an immersive or escapist point-of-view experience
+                                by framing the content as a fantasy scenario.
+                              </li>
+                              <li>
+                                <strong>Kink-Specific</strong>: Uses specific jargon and scenarios for a narrow, kink-focused
+                                audience to signal 'insider' knowledge.
+                              </li>
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                        <RadioGroup
+                          value={formData.creativeStyle}
+                          onValueChange={(v) => setFormData((prev) => ({ ...prev, creativeStyle: v }))}
+                          className="flex space-x-2"
+                          disabled={isGenerating}
+                        >
+                          {[
+                            { value: "grounded", label: "Grounded Scenario" },
+                            { value: "fantasy", label: "Fantasy / Roleplay" },
+                            { value: "kink", label: "Kink-Specific" },
+                          ].map((option) => (
+                            <div key={option.value} className="flex items-center space-x-2">
+                              <RadioGroupItem value={option.value} id={`quick-style-${option.value}`} />
+                              <Label
+                                htmlFor={`quick-style-${option.value}`}
+                                className="text-[var(--card-foreground)] cursor-pointer"
+                              >
+                                {option.label}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Label htmlFor="mood" className="w-fit text-[var(--card-foreground)]">
+                              Caption Mood
+                            </Label>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs" side="right">
+                            <p>This sets the emotional tone for your captions. playful, confident, shy, commanding</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
+                      </div>
+                      <Input
+                        id="quick-mood"
+                        placeholder="playful, confident, shy, commanding"
+                        value={formData.captionMood}
+                        onChange={(e) => handleChange(e, "captionMood")}
+                        className="bg-[var(--card)] border-[var(--border)]"
+                        disabled={isGenerating}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Label htmlFor="rules" className="w-fit text-[var(--card-foreground)]">
+                              Rules
+                            </Label>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs" side="right">
+                            <p>Specify any title rules for the particular subreddit you're posting to. gender tag</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="text-sm font-normal text-[var(--muted-foreground)]">(optional)</span>
+                      </div>
+                      <Input
+                        id="quick-rules"
+                        placeholder="gender tag"
+                        value={formData.rules}
+                        onChange={(e) => handleChange(e, "rules")}
+                        className="bg-[var(--card)] border-[var(--border)]"
+                        disabled={isGenerating}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -663,37 +683,107 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
 
         {formData.mode === "advanced" && (
           <>
-            <div className="border-2 border-[var(--border)] rounded-lg p-5 bg-[var(--card)]">
-              <h3 className="text-lg font-semibold text-[var(--card-foreground)] mb-4">Creator Features</h3>
-              <div className="grid grid-cols-[1fr_auto] gap-4 items-start mb-4">
-                <div className="space-y-2">
-                  <Label htmlFor="features" className="text-[var(--card-foreground)]">
-                    Niche/Physical Features <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="features"
-                    placeholder="cute, Japanese girl, anime, big natural boobs"
-                    value={formData.physicalFeatures}
-                    onChange={(e) => handleChange(e, "physicalFeatures")}
-                    className="bg-[var(--card)] border-[var(--border)]"
-                    disabled={isGenerating}
+            <div
+              className="space-y-6"
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${isDragging
+                    ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
+                    : analysisStatus === "success"
+                      ? "border-green-500 bg-green-50"
+                      : analysisStatus === "error"
+                        ? "border-red-500 bg-red-50"
+                        : "border-[var(--border)] bg-[var(--muted)]/30"
+                  }`}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <Upload
+                    className={`w-12 h-12 ${isDragging
+                        ? "text-[var(--primary)]"
+                        : analysisStatus === "success"
+                          ? "text-green-500"
+                          : analysisStatus === "error"
+                            ? "text-red-500"
+                            : "text-[var(--muted-foreground)]"
+                      }`}
                   />
+                  <p
+                    className={`text-base font-medium ${isDragging
+                        ? "text-[var(--primary)]"
+                        : analysisStatus === "success"
+                          ? "text-green-600"
+                          : analysisStatus === "error"
+                            ? "text-red-600"
+                            : "text-[var(--muted-foreground)]"
+                      }`}
+                  >
+                    {analysisStatus === "analyzing"
+                      ? "Analyzing image... Please wait"
+                      : analysisStatus === "success"
+                        ? "Image analyzed successfully!"
+                        : analysisStatus === "error"
+                          ? "Failed to analyze image. Please try again"
+                          : isDragging
+                            ? "Drop image here to analyze"
+                            : "Drag and drop an image here to auto-fill fields"}
+                  </p>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[var(--card-foreground)]">
-                    Gender <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={formData.gender} onValueChange={handleGenderChange} disabled={isGenerating}>
-                    <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)]">
-                      <SelectValue placeholder="Select Gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="trans">Trans</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {imageUrl && !isAnalyzing && (
+                <div className="relative w-full max-w-md mx-auto">
+                  <img
+                    src={imageUrl}
+                    alt="Analyzed image"
+                    className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${isBlurred ? "blur-md" : ""
+                      }`}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleToggleBlur}
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] font-semibold rounded-lg shadow-lg z-10"
+                  >
+                    {isBlurred ? "Unblur Image" : "Blur Image"}
+                  </Button>
+                </div>
+              )}
+
+              <div className="border-2 border-[var(--border)] rounded-lg p-5 bg-[var(--card)]">
+                <h3 className="text-lg font-semibold text-[var(--card-foreground)] mb-4">Creator Features</h3>
+                <div className="grid grid-cols-[1fr_auto] gap-4 items-start mb-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="features" className="text-[var(--card-foreground)]">
+                      Niche/Physical Features <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="features"
+                      placeholder="cute, Japanese girl, anime, big natural boobs"
+                      value={formData.physicalFeatures}
+                      onChange={(e) => handleChange(e, "physicalFeatures")}
+                      className="bg-[var(--card)] border-[var(--border)]"
+                      disabled={isGenerating}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[var(--card-foreground)]">
+                      Gender <span className="text-red-500">*</span>
+                    </Label>
+                    <Select value={formData.gender} onValueChange={handleGenderChange} disabled={isGenerating}>
+                      <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)]">
+                        <SelectValue placeholder="Select Gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="trans">Trans</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -986,29 +1076,25 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
           >
             <div
-              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${
-                formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
-              } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
+                } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
               role="switch"
               aria-checked={formData.isInteractive}
               aria-disabled={isGenerating}
             >
               <span
-                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${
-                  formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
-                }`}
+                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
+                  }`}
               />
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${
-                  formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
-                }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
+                  }`}
               >
                 ON
               </span>
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${
-                  !formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
-                }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
+                  }`}
               >
                 OFF
               </span>
