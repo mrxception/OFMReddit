@@ -47,6 +47,14 @@ export async function POST(request: NextRequest) {
 
     const basePrompt = promptResult[0].prompt_text
 
+    const captionCountMatch = basePrompt.match(/generate\s+(\d+)/i)
+    const captionCount = captionCountMatch ? parseInt(captionCountMatch[1], 10) : 3 
+    if (!Number.isInteger(captionCount) || captionCount < 1) {
+      console.error(`Invalid caption count extracted from prompt: ${captionCount}`)
+      throw new Error("Invalid caption count in database prompt")
+    }
+    console.log(`Extracted caption count from database prompt: ${captionCount}`)
+
     const documentsResult = await query(
       `SELECT d.filename, d.cloudinary_url, d.file_type 
        FROM documents d 
@@ -76,7 +84,7 @@ export async function POST(request: NextRequest) {
 # CRITICAL OUTPUT FORMAT OVERRIDE (HIGHEST PRIORITY)
 **ATTENTION: This instruction OVERRIDES any other output format instructions in the prompt above.**
 
-You MUST return your response as a valid JSON array with EXACTLY 3 caption objects. Do NOT use XML, markdown, or any other format.
+You MUST return your response as a valid JSON array with EXACTLY ${captionCount} caption objects. Do NOT use XML, markdown, or any other format.
 
 **Required JSON Structure:**
 \`\`\`json
@@ -88,31 +96,29 @@ You MUST return your response as a valid JSON array with EXACTLY 3 caption objec
   {
     "option": "Option 2: [Brief Label]",
     "text": "[The actual caption text]"
-  },
-  {
-    "option": "Option 3: [Brief Label]",
-    "text": "[The actual caption text]"
   }
+  // ... up to ${captionCount} objects
 ]
 \`\`\`
 
 **MANDATORY RULES:**
 1. Return ONLY the JSON array - no additional text, explanations, or markdown code blocks
 2. Each object MUST have exactly two fields: "option" and "text"
-3. The array MUST contain exactly 3 objects
+3. The array MUST contain exactly ${captionCount} objects
 4. All strings must be properly escaped for JSON
 5. Do NOT wrap the JSON in \`\`\`json or any other markers
 
 **Example of correct output:**
-[{"option":"Option 1: Niche Fantasy","text":"Your caption here"},{"option":"Option 2: Alt Fantasy","text":"Your caption here"},{"option":"Option 3: Grounded","text":"Your caption here"}]
+[{"option":"Option 1: Niche Fantasy","text":"Your caption here"},{"option":"Option 2: Alt Fantasy","text":"Your caption here"} // ... up to ${captionCount} objects]
 
-Generate the 3 captions following all the rules from the prompt above, but return them in this exact JSON format.
+Generate the ${captionCount} captions following all the rules from the prompt above, but return them in this exact JSON format.
 `
 
     const fullPrompt = basePrompt + "\n\n" + userInputSection + "\n\n" + jsonFormatOverride
 
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
+      console.error("GEMINI_API_KEY is not configured in environment variables")
       throw new Error("GEMINI_API_KEY is not configured in environment variables")
     }
 
@@ -120,9 +126,10 @@ Generate the 3 captions following all the rules from the prompt above, but retur
 
     if (documentsResult && documentsResult.length > 0) {
       for (const doc of documentsResult) {
-        
+        console.log(`Fetching document from Cloudinary: ${doc.cloudinary_url}`)
         const docResponse = await fetch(doc.cloudinary_url)
         if (docResponse.ok) {
+          console.log(`Successfully fetched document: ${doc.filename}`)
           const docBuffer = await docResponse.arrayBuffer()
           const base64Doc = Buffer.from(docBuffer).toString("base64")
 
@@ -132,10 +139,13 @@ Generate the 3 captions following all the rules from the prompt above, but retur
               data: base64Doc,
             },
           })
+        } else {
+          console.error(`Failed to fetch document: ${doc.cloudinary_url}, status: ${docResponse.status}`)
         }
       }
     }
 
+    console.log("Sending request to Gemini API")
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
@@ -177,29 +187,33 @@ Generate the 3 captions following all the rules from the prompt above, but retur
 
     if (!response.ok) {
       const errorData = await response.json()
+      console.error("Gemini API request failed:", JSON.stringify(errorData))
       throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`)
     }
 
+    console.log("Received response from Gemini API")
     const data = await response.json()
 
     if (data.promptFeedback?.blockReason) {
+      console.error("Content blocked by Gemini API:", data.promptFeedback.blockReason)
       throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) {
+      console.error("No content returned from Gemini API")
       throw new Error("No content returned from Gemini API")
     }
 
     let captions
     try {
       captions = JSON.parse(text)
-      if (!Array.isArray(captions) || captions.length !== 3 || !captions.every((c: any) => c.option && c.text)) {
-        throw new Error("Invalid captions format")
+      if (!Array.isArray(captions) || captions.length !== captionCount || !captions.every((c: any) => c.option && c.text)) {
+        console.error(`Invalid captions format: expected ${captionCount} captions, got ${captions.length}`)
+        throw new Error(`Invalid captions format: expected ${captionCount} captions`)
       }
     } catch (error) {
       console.log("Failed to parse as pure JSON, attempting to extract JSON from text:", text.substring(0, 200))
-
       const jsonMatch = text.match(/\[\s*\{[\s\S]*?\}\s*\]/)
       if (!jsonMatch) {
         console.error("No JSON array found in response:", text)
@@ -208,8 +222,9 @@ Generate the 3 captions following all the rules from the prompt above, but retur
 
       try {
         captions = JSON.parse(jsonMatch[0])
-        if (!Array.isArray(captions) || captions.length !== 3 || !captions.every((c: any) => c.option && c.text)) {
-          throw new Error("Invalid captions format in fallback parsing")
+        if (!Array.isArray(captions) || captions.length !== captionCount || !captions.every((c: any) => c.option && c.text)) {
+          console.error(`Invalid captions format in fallback parsing: expected ${captionCount} captions, got ${captions.length}`)
+          throw new Error(`Invalid captions format in fallback parsing: expected ${captionCount} captions`)
         }
       } catch (parseError) {
         console.error("Failed to parse extracted JSON:", jsonMatch[0])
@@ -217,6 +232,7 @@ Generate the 3 captions following all the rules from the prompt above, but retur
       }
     }
 
+    console.log(`Successfully generated ${captionCount} captions`)
     return NextResponse.json({ captions })
   } catch (error: any) {
     console.error("Error generating captions:", error)
