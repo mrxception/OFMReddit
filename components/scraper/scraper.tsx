@@ -1,15 +1,24 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import React from "react"
 import s from "@/styles/scraper.module.css"
 
 import Form from "./form"
 import ExcelSheetSection from "./excel-sheet-section"
+import ScatterPlotSection from "./scatter-plot-section"
+import BarChartSection from "./bar-chart-section"
+import BoxPlotSection from "./box-plot-section"
+import LineChartSection from "./line-chart-section";
+import KeyInsightsSection from "./key-insights-section"
 import KPI from "./kpi-section"
 
 export default function Scraper() {
+  const [showSecondUsername, setShowSecondUsername] = useState(false)
+  const [username2, setUsername2] = useState("")
+
   const [username, setUsername] = useState("")
+  const [runUsername, setRunUsername] = useState("")
   const [dateRange, setDateRange] = useState("all")
   const [limit, setLimit] = useState(100)
 
@@ -17,8 +26,9 @@ export default function Scraper() {
   const [inclVote, setInclVote] = useState(false)
   const [inclComm, setInclComm] = useState(false)
   const [inclPER, setInclPER] = useState(false)
-  const [inclExtraFreq, setInclExtraFreq] = useState(false)
   const [inclMed, setInclMed] = useState(false)
+
+  const [averageMetricKey, setAverageMetricKey] = React.useState<"avg" | "median">("avg")
 
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState("Idle")
@@ -31,11 +41,16 @@ export default function Scraper() {
   const progRef = useRef<HTMLElement>(null)
   const historyRef = useRef<HTMLDivElement>(null)
 
+  const [timeSeries, setTimeSeries] = useState<{
+    upvotes: Array<{ date: string;[k: string]: number | string | null }>;
+    comments: Array<{ date: string;[k: string]: number | string | null }>;
+    subreddits: string[];
+  } | null>(null);
+
   function setProgress(frac: number) {
     if (!progRef.current) return
     const clamped = Math.max(0, Math.min(1, frac))
     progRef.current.style.width = clamped * 100 + "%"
-
     const bar = progRef.current.parentElement
     if (bar) {
       bar.setAttribute("role", "progressbar")
@@ -46,9 +61,7 @@ export default function Scraper() {
   }
 
   useEffect(() => {
-    if (historyRef.current) {
-      historyRef.current.scrollTop = historyRef.current.scrollHeight
-    }
+    if (historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight
   }, [files.length])
 
   useEffect(() => {
@@ -77,10 +90,8 @@ export default function Scraper() {
 
   async function handleDelete(id: string) {
     try {
-      await fetch(`/api/scrape?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      })
-      setFiles((arr) => arr.filter((f: { id: string; filename: string }) => f.id !== id))
+      await fetch(`/api/scrape?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+      setFiles((arr) => arr.filter((f) => f.id !== id))
     } catch {
       setMsg({ type: "err", text: "Failed to delete file." })
     }
@@ -99,6 +110,8 @@ export default function Scraper() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const frozen = (username || "").trim()
+    setRunUsername(frozen)
     setBusy(true)
     setMsg(null)
     setStatus("Starting…")
@@ -110,9 +123,7 @@ export default function Scraper() {
       ; (async function poll() {
         while (!stopPoll) {
           try {
-            const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, {
-              cache: "no-store",
-            })
+            const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, { cache: "no-store" })
             if (r.ok) {
               const p = await r.json()
               const total = p.total || limit || 1
@@ -132,14 +143,13 @@ export default function Scraper() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username,
+          username: frozen,
           limit,
           dateRange,
           inclSubs: inclSubs ? 1 : 0,
           inclVote: inclVote ? 1 : 0,
           inclComm: inclComm ? 1 : 0,
           inclPER: inclPER ? 1 : 0,
-          inclExtraFreq: inclExtraFreq ? 1 : 0,
           inclMed: inclMed ? 1 : 0,
           format: "xlsx",
           sid: sidRef.current,
@@ -156,6 +166,8 @@ export default function Scraper() {
       }
 
       const payload = await res.json()
+      setPreview(Array.isArray(payload.preview) ? payload.preview : []);
+      setTimeSeries(payload.timeSeries ?? null);
 
       setSpanDays(
         typeof payload.datasetSpanDays === "number" && isFinite(payload.datasetSpanDays)
@@ -166,7 +178,6 @@ export default function Scraper() {
       setPreview(Array.isArray(payload.preview) ? payload.preview : [])
 
       const staged = Array.isArray(payload.files) ? payload.files : payload.id ? [payload] : []
-
       setFiles((arr) => [...arr, ...staged])
 
       setProgress(1)
@@ -191,25 +202,27 @@ export default function Scraper() {
     }
   }
 
-  const hasTop10 = Array.isArray(preview) && preview.length > 0
+  const cols = useMemo(() => {
+    const list: Array<{ key: string; label: string }> = [
+      { key: "Subreddit", label: "subreddit name" },
+      { key: "Total_Posts", label: "number of posts" },
+      { key: "Avg_Upvotes_Per_Post", label: "av. upvotes (mean)" },
+      { key: "Avg_Comments_Per_Post", label: "av. comments" },
+      { key: "Post_Frequency", label: "post frequency" },
+    ]
+    if (inclMed) list.splice(5, 0, { key: "Median_Upvotes", label: "median upvotes" })
+    if (inclVote) list.push({ key: "Total_Upvotes", label: "total upvotes" })
+    if (inclComm) list.push({ key: "Total_Comments", label: "total comments" })
+    if (inclSubs) list.push({ key: "Subreddit_Subscribers", label: "subreddit member count" })
+    if (inclPER) {
+      list.push({ key: "WPI_Score", label: "wpi score" })
+      list.push({ key: "WPI_Rating", label: "wpi rating" })
+    }
+    list.push({ key: "LastDateTimeUTC", label: "last post date" })
+    return list
+  }, [inclMed, inclVote, inclComm, inclSubs, inclPER])
 
-  const previewWith30 = React.useMemo(() => {
-    if (!Array.isArray(preview)) return []
-    return preview.map((r: any) => {
-      const total = Number(r?.Total_Posts ?? 0)
-      const per30 = spanDays && spanDays > 0 ? Math.round((total / spanDays) * 30 * 100) / 100 : null
-      return { ...r, Posts_Per_30Days: per30 }
-    })
-  }, [preview, spanDays])
-
-  const cols: Array<{ key: string; label: string }> = [
-    { key: "Subreddit", label: "subreddit name" },
-    { key: "Total_Posts", label: "number of posts" },
-    { key: "Avg_Upvotes_Per_Post", label: "av. upvotes (mean)" },
-    { key: "Avg_Comments_Per_Post", label: "av. comments" },
-    { key: "Posts_Per_30Days", label: "posts/30days" },
-    { key: "LastDateTimeUTC", label: "last post date" },
-  ]
+  const hasRows = Array.isArray(preview) && preview.length > 0
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
@@ -224,14 +237,13 @@ export default function Scraper() {
             progRef={progRef}
             status={status}
             busy={busy}
-            username={username}    
-            dateRange={dateRange}       
-            limit={limit}          
-            inclVote={inclVote}           
-            inclSubs={inclSubs}            
+            username={username}
+            dateRange={dateRange}
+            limit={limit}
+            inclVote={inclVote}
+            inclSubs={inclSubs}
             inclComm={inclComm}
             inclPER={inclPER}
-            inclExtraFreq={inclExtraFreq}
             inclMed={inclMed}
             onSubmit={onSubmit}
             setUsername={setUsername}
@@ -241,24 +253,23 @@ export default function Scraper() {
             setInclSubs={setInclSubs}
             setInclComm={setInclComm}
             setInclPER={setInclPER}
-            setInclExtraFreq={setInclExtraFreq}
             setInclMed={setInclMed}
+
+            showSecondUsername={showSecondUsername}
+            setShowSecondUsername={setShowSecondUsername}
+            username2={username2}
+            setUsername2={setUsername2}
             s={s}
           />
         </div>
 
-        <KPI
-          rows={preview}
-          dateRange={dateRange}
-          limit={limit}
-          inclPER={inclPER}
-        />
+        <KPI rows={preview} dateRange={dateRange} limit={limit} inclPER={inclPER} />
 
         <ExcelSheetSection
-          hasTop10={hasTop10}
-          username={username}
+          hasTop10={hasRows}
+          username={runUsername}
           cols={cols}
-          previewWith30={previewWith30}
+          rows={preview}
           fmtUTC={fmtUTC}
           files={files}
           historyRef={historyRef}
@@ -267,6 +278,30 @@ export default function Scraper() {
           msg={msg}
           s={s}
         />
+
+        <ScatterPlotSection rows={preview} username={runUsername} s={s} />
+
+        <BarChartSection
+          rows={preview}
+          s={s}
+          averageMetricKey={averageMetricKey}
+          onMetricChange={setAverageMetricKey}
+        />
+
+        <BoxPlotSection
+          rows={preview}
+          s={s}
+          averageMetricKey={averageMetricKey}
+        />
+
+        <LineChartSection
+          rows={preview}
+          username={runUsername}
+          s={s}
+          timeSeries={timeSeries ?? undefined}
+        />
+
+        <KeyInsightsSection rows={preview} />
       </div>
     </div>
   )
