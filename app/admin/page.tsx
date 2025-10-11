@@ -1,14 +1,13 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Upload, FileText, Trash2, Users, Copy, Save, Ban, UserX } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Upload, FileText, Trash2, Users, Copy, Save, Ban, UserX, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 type Prompt = {
@@ -61,16 +60,17 @@ export default function AdminPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [uploadingFile, setUploadingFile] = useState(false)
+    const [showSavedSuccess, setShowSavedSuccess] = useState(false)
 
     useEffect(() => {
         const token = localStorage.getItem("token")
         const userData = localStorage.getItem("user")
-        console.log(" Admin Page - Token exists:", !!token)
-        console.log(" Admin Page - User data:", userData)
+        console.log("Admin Page - Token exists:", !!token)
+        console.log("Admin Page - User data:", userData)
         if (userData) {
             const parsedUser = JSON.parse(userData)
-            console.log(" Admin Page - Parsed user:", parsedUser)
-            console.log(" Admin Page - isAdmin value:", parsedUser.isAdmin)
+            console.log("Admin Page - Parsed user:", parsedUser)
+            console.log("Admin Page - isAdmin value:", parsedUser.isAdmin)
         }
 
         if (!token) {
@@ -86,6 +86,7 @@ export default function AdminPage() {
         if (!token) return
 
         try {
+            setIsLoading(true)
             const [promptsRes, usersRes, captionsRes] = await Promise.all([
                 fetch("/api/admin/prompts", {
                     headers: { Authorization: `Bearer ${token}` },
@@ -119,7 +120,6 @@ export default function AdminPage() {
             setUsers(usersData.users)
             setCopiedCaptions(captionsData.copiedCaptions)
 
-
             const captionPrompt = promptsData.prompts.find((p: Prompt) => p.name === "caption_generator")
             if (captionPrompt) {
                 setPromptText(captionPrompt.prompt_text)
@@ -128,7 +128,7 @@ export default function AdminPage() {
             console.error("Error fetching data:", error)
             toast({
                 title: "Error",
-                description: error.message,
+                description: error.message || "Failed to load data",
                 variant: "destructive",
             })
         } finally {
@@ -138,6 +138,7 @@ export default function AdminPage() {
 
     const handlePromptChange = (promptName: string) => {
         setSelectedPrompt(promptName)
+        setShowSavedSuccess(false)
         const prompt = prompts.find((p) => p.name === promptName)
         if (prompt) {
             setPromptText(prompt.prompt_text)
@@ -146,9 +147,26 @@ export default function AdminPage() {
 
     const handleSavePrompt = async () => {
         const token = localStorage.getItem("token")
-        if (!token) return
+        if (!token) {
+            toast({
+                title: "Error",
+                description: "Authentication token missing",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (!promptText.trim()) {
+            toast({
+                title: "Error",
+                description: "Prompt text cannot be empty",
+                variant: "destructive",
+            })
+            return
+        }
 
         setIsSaving(true)
+        setShowSavedSuccess(false)
         try {
             const response = await fetch("/api/admin/prompts", {
                 method: "PUT",
@@ -162,18 +180,36 @@ export default function AdminPage() {
                 }),
             })
 
-            if (!response.ok) throw new Error("Failed to save prompt")
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || "Failed to save prompt")
+            }
+
+            const updatedPromptData = await response.json()
+            const updatedPrompt = updatedPromptData.prompt
+
+            // Update only the specific prompt in the state
+            setPrompts((prevPrompts) =>
+                prevPrompts.map((p) =>
+                    p.name === selectedPrompt ? { ...p, prompt_text: updatedPrompt.prompt_text, description: updatedPrompt.description } : p
+                )
+            )
+            setPromptText(updatedPrompt.prompt_text)
 
             toast({
-                title: "Success",
-                description: "Prompt saved successfully",
+                title: "Prompt Saved",
+                description: `Prompt "${selectedPrompt}" has been successfully saved`,
+                variant: "default",
+                duration: 5000,
             })
 
-            fetchData()
+            setShowSavedSuccess(true)
+            setTimeout(() => setShowSavedSuccess(false), 3000)
         } catch (error: any) {
+            console.error("Error saving prompt:", error)
             toast({
                 title: "Error",
-                description: error.message,
+                description: error.message || "Failed to save prompt",
                 variant: "destructive",
             })
         } finally {
@@ -186,7 +222,14 @@ export default function AdminPage() {
         if (!file) return
 
         const token = localStorage.getItem("token")
-        if (!token) return
+        if (!token) {
+            toast({
+                title: "Error",
+                description: "Authentication token missing",
+                variant: "destructive",
+            })
+            return
+        }
 
         setUploadingFile(true)
         try {
@@ -209,14 +252,16 @@ export default function AdminPage() {
 
             toast({
                 title: "Success",
-                description: "Document uploaded successfully",
+                description: `Document "${file.name}" uploaded successfully`,
+                duration: 5000,
             })
 
-            fetchData()
+            await fetchData()
         } catch (error: any) {
+            console.error("Error uploading document:", error)
             toast({
                 title: "Error",
-                description: error.message,
+                description: error.message || "Failed to upload document",
                 variant: "destructive",
             })
         } finally {
@@ -227,7 +272,14 @@ export default function AdminPage() {
 
     const handleDeleteDocument = async (documentId: number) => {
         const token = localStorage.getItem("token")
-        if (!token) return
+        if (!token) {
+            toast({
+                title: "Error",
+                description: "Authentication token missing",
+                variant: "destructive",
+            })
+            return
+        }
 
         if (!confirm("Are you sure you want to delete this document?")) return
 
@@ -239,18 +291,23 @@ export default function AdminPage() {
                 },
             })
 
-            if (!response.ok) throw new Error("Failed to delete document")
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.error || "Failed to delete document")
+            }
 
             toast({
                 title: "Success",
                 description: "Document deleted successfully",
+                duration: 5000,
             })
 
-            fetchData()
+            await fetchData()
         } catch (error: any) {
+            console.error("Error deleting document:", error)
             toast({
                 title: "Error",
-                description: error.message,
+                description: error.message || "Failed to delete document",
                 variant: "destructive",
             })
         }
@@ -258,7 +315,14 @@ export default function AdminPage() {
 
     const handleBanUser = async (userId: number, currentlyBanned: boolean) => {
         const token = localStorage.getItem("token")
-        if (!token) return
+        if (!token) {
+            toast({
+                title: "Error",
+                description: "Authentication token missing",
+                variant: "destructive",
+            })
+            return
+        }
 
         try {
             if (currentlyBanned) {
@@ -269,11 +333,15 @@ export default function AdminPage() {
                     },
                 })
 
-                if (!response.ok) throw new Error("Failed to unban user")
+                if (!response.ok) {
+                    const error = await response.json()
+                    throw new Error(error.error || "Failed to unban user")
+                }
 
                 toast({
                     title: "Success",
                     description: "User unbanned successfully",
+                    duration: 5000,
                 })
             } else {
                 const reason = prompt("Enter ban reason (optional):")
@@ -287,19 +355,24 @@ export default function AdminPage() {
                     body: JSON.stringify({ userId, reason }),
                 })
 
-                if (!response.ok) throw new Error("Failed to ban user")
+                if (!response.ok) {
+                    const error = await response.json()
+                    throw new Error(error.error || "Failed to ban user")
+                }
 
                 toast({
                     title: "Success",
                     description: "User banned successfully",
+                    duration: 5000,
                 })
             }
 
-            fetchData()
+            await fetchData()
         } catch (error: any) {
+            console.error("Error managing user ban:", error)
             toast({
                 title: "Error",
-                description: error.message,
+                description: error.message || "Failed to update user ban status",
                 variant: "destructive",
             })
         }
@@ -307,7 +380,14 @@ export default function AdminPage() {
 
     const handleDeleteUser = async (userId: number) => {
         const token = localStorage.getItem("token")
-        if (!token) return
+        if (!token) {
+            toast({
+                title: "Error",
+                description: "Authentication token missing",
+                variant: "destructive",
+            })
+            return
+        }
 
         if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return
 
@@ -319,18 +399,23 @@ export default function AdminPage() {
                 },
             })
 
-            if (!response.ok) throw new Error("Failed to delete user")
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.error || "Failed to delete user")
+            }
 
             toast({
                 title: "Success",
                 description: "User deleted successfully",
+                duration: 5000,
             })
 
-            fetchData()
+            await fetchData()
         } catch (error: any) {
+            console.error("Error deleting user:", error)
             toast({
                 title: "Error",
-                description: error.message,
+                description: error.message || "Failed to delete user",
                 variant: "destructive",
             })
         }
@@ -352,6 +437,7 @@ export default function AdminPage() {
                             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
                         </div>
                     </div>
+                    <p className="text-sm text-muted-foreground">Loading admin panel...</p>
                 </div>
             </div>
         )
@@ -382,6 +468,7 @@ export default function AdminPage() {
                                     value={selectedPrompt}
                                     onChange={(e) => handlePromptChange(e.target.value)}
                                     className="w-full p-2 border border-border rounded-lg bg-background text-foreground"
+                                    disabled={isSaving || uploadingFile}
                                 >
                                     {prompts.map((prompt) => (
                                         <option key={prompt.name} value={prompt.name}>
@@ -397,16 +484,25 @@ export default function AdminPage() {
                                         <FileText className="w-4 h-4" />
                                         Instructions
                                     </label>
-                                    <Button onClick={handleSavePrompt} disabled={isSaving} size="sm">
-                                        <Save className="w-4 h-4 mr-2" />
-                                        {isSaving ? "Saving..." : "Save Prompt"}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        {showSavedSuccess && (
+                                            <div className="flex items-center gap-1 text-green-600">
+                                                <CheckCircle className="w-4 h-4" />
+                                                <span className="text-sm">Saved successfully</span>
+                                            </div>
+                                        )}
+                                        <Button onClick={handleSavePrompt} disabled={isSaving || uploadingFile} size="sm">
+                                            <Save className="w-4 h-4 mr-2" />
+                                            {isSaving ? "Saving..." : "Save Prompt"}
+                                        </Button>
+                                    </div>
                                 </div>
                                 <Textarea
                                     value={promptText}
                                     onChange={(e) => setPromptText(e.target.value)}
                                     className="min-h-[400px] font-mono text-sm"
                                     placeholder="Enter your prompt instructions here..."
+                                    disabled={isSaving || uploadingFile}
                                 />
                             </div>
 
@@ -423,11 +519,11 @@ export default function AdminPage() {
                                             accept=".pdf,.doc,.docx"
                                             onChange={handleFileUpload}
                                             className="hidden"
-                                            disabled={uploadingFile}
+                                            disabled={uploadingFile || isSaving}
                                         />
                                         <Button
                                             onClick={() => document.getElementById("file-upload")?.click()}
-                                            disabled={uploadingFile}
+                                            disabled={uploadingFile || isSaving}
                                             size="sm"
                                             variant="outline"
                                         >
@@ -457,6 +553,7 @@ export default function AdminPage() {
                                                     size="sm"
                                                     onClick={() => handleDeleteDocument(doc.id)}
                                                     className="text-destructive hover:text-destructive"
+                                                    disabled={isSaving || uploadingFile}
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>
@@ -517,7 +614,6 @@ export default function AdminPage() {
                                                                 User
                                                             </span>
                                                         )}
-
                                                     </div>
                                                 </td>
                                                 <td className="p-3 text-sm">{user.post_count}</td>
@@ -538,7 +634,7 @@ export default function AdminPage() {
                                                             variant="outline"
                                                             size="sm"
                                                             onClick={() => handleBanUser(user.id, !!user.banned_id)}
-                                                            disabled={user.is_admin}
+                                                            disabled={user.is_admin || isSaving || uploadingFile}
                                                         >
                                                             {user.banned_id ? (
                                                                 <>
@@ -556,7 +652,7 @@ export default function AdminPage() {
                                                             variant="destructive"
                                                             size="sm"
                                                             onClick={() => handleDeleteUser(user.id)}
-                                                            disabled={user.is_admin}
+                                                            disabled={user.is_admin || isSaving || uploadingFile}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>
