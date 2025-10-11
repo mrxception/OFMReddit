@@ -1,5 +1,4 @@
 "use client"
-
 import React from "react"
 
 interface FormProps {
@@ -11,62 +10,70 @@ interface FormProps {
     username: string
     setUsername: (v: string) => void
 
+    // NEW: optional 2nd username (UI-only)
+    showSecondUsername: boolean
+    setShowSecondUsername: (v: boolean) => void
+    username2: string
+    setUsername2: (v: string) => void
+
     dateRange: string
     setDateRange: (v: string) => void
-
     limit: number
     setLimit: (v: number) => void
-
     inclVote: boolean
     setInclVote: (v: boolean) => void
-
     inclSubs: boolean
     setInclSubs: (v: boolean) => void
-
     inclComm: boolean
     setInclComm: (v: boolean) => void
-
     inclPER: boolean
     setInclPER: (v: boolean) => void
-
-    inclExtraFreq: boolean
-    setInclExtraFreq: (v: boolean) => void
-
     inclMed: boolean
     setInclMed: (v: boolean) => void
 
-    s: { [key: string]: string } 
+    s: { [key: string]: string }
 }
 
-export default function Form({
-    onSubmit,
-    progRef,
-    status,
-    busy,
-    username,
-    setUsername,
-    dateRange,
-    setDateRange,
-    limit,
-    setLimit,
-    inclVote,
-    setInclVote,
-    inclSubs,
-    setInclSubs,
-    inclComm,
-    setInclComm,
-    inclPER,
-    setInclPER,
-    inclExtraFreq,
-    setInclExtraFreq,
-    inclMed,
-    setInclMed,
-    s,
-}: FormProps) {
+export default function Form(props: FormProps) {
+    const {
+        onSubmit,
+        progRef,
+        status,
+        busy,
+        username,
+        setUsername,
+        showSecondUsername,
+        setShowSecondUsername,
+        username2,
+        setUsername2,
+        dateRange,
+        setDateRange,
+        limit,
+        setLimit,
+        inclVote,
+        setInclVote,
+        inclSubs,
+        setInclSubs,
+        inclComm,
+        setInclComm,
+        inclPER,
+        setInclPER,
+        inclMed,
+        setInclMed,
+        s,
+    } = props
+
+    const addSecond = () => setShowSecondUsername(true)
+    const removeSecond = () => {
+        setUsername2("")
+        setShowSecondUsername(false)
+    }
+
     return (
         <form onSubmit={onSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                <div>
+            {/* USERNAME ROW */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-4 mb-4">
+                <div className="sm:col-span-1 lg:col-span-2">
                     <label htmlFor="username" className="block text-sm font-semibold text-foreground mb-2">
                         Reddit Username
                     </label>
@@ -82,6 +89,50 @@ export default function Form({
                     />
                 </div>
 
+                {showSecondUsername ? (
+                    <div className="sm:col-span-1 lg:col-span-3">
+                        <label htmlFor="username2" className="block text-sm font-semibold text-foreground mb-2">
+                            Another Username
+                        </label>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                            <input
+                                className={`${s.csvinput} lg:col-span-2`}
+                                id="username2"
+                                name="username2"
+                                placeholder="e.g. another_user"
+                                value={username2}
+                                onChange={(e) => setUsername2(e.target.value)}
+                                autoComplete="off"
+                            />
+                            <button
+                                type="button"
+                                className={`${s.btn} w-full lg:col-span-1`}
+                                onClick={removeSecond}
+                                disabled={busy}
+                                aria-label="Remove second username"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    // When hidden, the add button takes MORE space on lg
+                    <div className="sm:col-span-1 lg:col-span-2 flex items-end">
+                        <button
+                            type="button"
+                            className={`${s.btn} w-full`}
+                            onClick={addSecond}
+                            disabled={busy}
+                            aria-label="Add another username"
+                        >
+                            + Add another username
+                        </button>
+                    </div>
+                )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-14">
+                {/* EXISTING CONTROLS (unchanged) */}
                 <div>
                     <label htmlFor="dateRange" className="block text-sm font-semibold text-foreground mb-2">
                         Date Range
@@ -93,13 +144,14 @@ export default function Form({
                         onChange={(e) => setDateRange(e.target.value)}
                     >
                         <option value="all">All Time</option>
-                        <option value="year">Past Year</option>
-                        <option value="month">Past Month</option>
-                        <option value="week">Past Week</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="60">Last 60 Days</option>
+                        <option value="90">Last 90 Days</option>
                     </select>
                 </div>
 
-                <div>
+                <div className="sm:col-span-1">
                     <label htmlFor="limit" className="block text-sm font-semibold text-foreground mb-2">
                         Max posts (1–1000)
                     </label>
@@ -122,6 +174,8 @@ export default function Form({
                 </div>
             </div>
 
+
+            {/* CHECKBOXES + PROGRESS (unchanged) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -130,7 +184,7 @@ export default function Form({
                         checked={inclVote}
                         onChange={(e) => setInclVote(e.target.checked)}
                     />
-                    <span className="text-sm text-foreground">Total Upvotes</span>
+                    <span className="text-sm text-foreground">Total upvotes</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -148,7 +202,7 @@ export default function Form({
                         checked={inclComm}
                         onChange={(e) => setInclComm(e.target.checked)}
                     />
-                    <span className="text-sm text-foreground">Total Comments</span>
+                    <span className="text-sm text-foreground">Total comments</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -157,16 +211,7 @@ export default function Form({
                         checked={inclPER}
                         onChange={(e) => setInclPER(e.target.checked)}
                     />
-                    <span className="text-sm text-foreground">Performance efficiency rating</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        className={s.setinput}
-                        checked={inclExtraFreq}
-                        onChange={(e) => setInclExtraFreq(e.target.checked)}
-                    />
-                    <span className="text-sm text-foreground">Additional Post Frequency Data</span>
+                    <span className="text-sm text-foreground">Performance rating</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input

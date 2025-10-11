@@ -3,31 +3,19 @@ import crypto from "crypto"
 import { buildWorkbook, type SubredditRow } from "@/lib/excel/buildWorkbook"
 import { buildRawWorkbook, type RawPostRow } from "@/lib/excel/buildRawWorkbook"
 
+export const runtime = "nodejs"
+
 const sessions = new Map<
   string,
-  {
-    phase: string
-    fetched: number
-    total: number
-    done: boolean
-  }
+  { phase: string; fetched: number; total: number; done: boolean }
 >()
 
-const files = new Map<
-  string,
-  {
-    buffer: Buffer
-    filename: string
-    createdAt: number
-  }
->()
+const files = new Map<string, { buffer: Buffer; filename: string; createdAt: number }>()
 
 setInterval(() => {
   const now = Date.now()
   for (const [id, file] of files.entries()) {
-    if (now - file.createdAt > 10 * 60 * 1000) {
-      files.delete(id)
-    }
+    if (now - file.createdAt > 10 * 60 * 1000) files.delete(id)
   }
 }, 60 * 1000)
 
@@ -46,11 +34,7 @@ interface SubredditStats {
   totalPosts: number
   totalUpvotes: number
   totalComments: number
-  posts: Array<{
-    score: number
-    comments: number
-    created: number
-  }>
+  posts: Array<{ score: number; comments: number; created: number }>
   lastPostDate: number
 }
 
@@ -60,12 +44,16 @@ interface RedditTokenResponse {
   expires_in: number
   scope: string
 }
-
 interface RedditApiResponse {
-  data: {
-    children: RedditPost[]
-    after: string | null
-  }
+  data: { children: RedditPost[]; after: string | null }
+}
+
+function toDateRangeCutoff(value?: string | number | null): number | null {
+  if (!value || value === "all" || String(value).toLowerCase() === "all") return null
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return null
+  const nowSecs = Math.floor(Date.now() / 1000)
+  return nowSecs - n * 86400
 }
 
 async function getAccessToken(): Promise<string> {
@@ -93,36 +81,34 @@ async function getAccessToken(): Promise<string> {
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to obtain access token: ${response.statusText}`)
+    const txt = await response.text().catch(() => "")
+    throw new Error(`Failed to obtain access token: ${response.status} ${response.statusText} ${txt}`.trim())
   }
 
   const data = (await response.json()) as RedditTokenResponse
-  if (!data.access_token) {
-    throw new Error("No access token received from Reddit API")
-  }
-
+  if (!data.access_token) throw new Error("No access token received from Reddit API")
   return data.access_token
 }
 
-const SUBS_TTL = 6 * 60 * 60 * 1000;
+const SUBS_TTL = 6 * 60 * 60 * 1000
 const SUBS_CACHE: Map<string, { v: number; t: number }> =
-  (globalThis as any).__SUBS_CACHE__ ?? ((globalThis as any).__SUBS_CACHE__ = new Map());
+  (globalThis as any).__SUBS_CACHE__ ?? ((globalThis as any).__SUBS_CACHE__ = new Map())
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-let subCounts: Map<string, number> | undefined;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+let subCounts: Map<string, number> | undefined
 
 async function fetchSubredditSubs(name: string, token: string): Promise<number> {
-  const key = String(name || "").toLowerCase();
-  const now = Date.now();
-  const hit = SUBS_CACHE.get(key);
-  if (hit && now - hit.t < SUBS_TTL) return hit.v;
+  const key = String(name || "").toLowerCase()
+  const now = Date.now()
+  const hit = SUBS_CACHE.get(key)
+  if (hit && now - hit.t < SUBS_TTL) return hit.v
 
-  await sleep(250);
+  await sleep(250)
 
-  const url = `https://oauth.reddit.com/r/${encodeURIComponent(name)}/about`;
-  let tok = token;
-  let attempt = 0;
-  let delay = 400;
+  const url = `https://oauth.reddit.com/r/${encodeURIComponent(name)}/about`
+  let tok = token
+  let attempt = 0
+  let delay = 400
 
   while (attempt < 3) {
     const res = await fetch(url, {
@@ -130,30 +116,30 @@ async function fetchSubredditSubs(name: string, token: string): Promise<number> 
         Authorization: `Bearer ${tok}`,
         "User-Agent": process.env.REDDIT_USER_AGENT || "SubredditAnalyzer/1.0",
       },
-    });
+    })
 
     if (res.status === 401) {
-      tok = await getAccessToken();
-      attempt++;
-      await sleep(delay);
-      delay *= 2;
-      continue;
+      tok = await getAccessToken()
+      attempt++
+      await sleep(delay)
+      delay *= 2
+      continue
     }
 
     if (!res.ok) {
-      attempt++;
-      await sleep(delay);
-      delay *= 2;
-      continue;
+      attempt++
+      await sleep(delay)
+      delay *= 2
+      continue
     }
 
-    const data = await res.json();
-    const v = data?.data?.subscribers ?? 0;
-    SUBS_CACHE.set(key, { v, t: now });
-    return v;
+    const data = await res.json()
+    const v = data?.data?.subscribers ?? 0
+    SUBS_CACHE.set(key, { v, t: now })
+    return v
   }
-  subCounts = subCounts ?? new Map();
-  return 0;
+  subCounts = subCounts ?? new Map()
+  return 0
 }
 
 export async function GET(request: NextRequest) {
@@ -165,21 +151,14 @@ export async function GET(request: NextRequest) {
   if (sid && progress) {
     const session = sessions.get(sid)
     if (!session) {
-      return NextResponse.json({
-        phase: "Idle",
-        fetched: 0,
-        total: 0,
-        done: false,
-      })
+      return NextResponse.json({ phase: "Idle", fetched: 0, total: 0, done: false })
     }
     return NextResponse.json(session)
   }
 
   if (fileId) {
     const file = files.get(fileId)
-    if (!file) {
-      return NextResponse.json({ error: "File not found" }, { status: 404 })
-    }
+    if (!file) return NextResponse.json({ error: "File not found" }, { status: 404 })
 
     return new NextResponse(new Uint8Array(file.buffer), {
       headers: {
@@ -202,91 +181,88 @@ export async function POST(request: NextRequest) {
       inclVote = 0,
       inclComm = 0,
       inclPER = 0,
-      inclExtraFreq = 0,
       inclMed = 0,
       format = "xlsx",
       sid,
+      dateRange = "all",
     } = body
 
-    if (!username) {
-      return NextResponse.json({ error: "Username is required" }, { status: 400 })
-    }
-    if (!sid) {
-      return NextResponse.json({ error: "Session ID is required" }, { status: 400 })
-    }
+    if (!username) return NextResponse.json({ error: "Username is required" }, { status: 400 })
+    if (!sid) return NextResponse.json({ error: "Session ID is required" }, { status: 400 })
 
-    sessions.set(sid, { phase: "Fetching posts…", fetched: 0, total: limit, done: false })
+    const maxLimit = Math.min(Number(limit) || 1000, 1000)
+    sessions.set(sid, { phase: "Fetching posts…", fetched: 0, total: maxLimit, done: false })
 
     let accessToken: string
     try {
       accessToken = await getAccessToken()
-    } catch {
+    } catch (e: any) {
       sessions.delete(sid)
-      return NextResponse.json({ error: "Failed to authenticate with Reddit API" }, { status: 500 })
+      return NextResponse.json({ error: e?.message || "Failed to authenticate with Reddit API" }, { status: 500 })
     }
 
     const posts: RedditPost[] = []
     let after: string | null = null
-    const maxLimit = Math.min(limit, 1000)
-
     try {
       while (posts.length < maxLimit) {
         const batchSize = Math.min(100, maxLimit - posts.length)
         const url = `https://oauth.reddit.com/user/${username}/submitted.json?limit=${batchSize}${after ? `&after=${after}` : ""}`
 
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "User-Agent": process.env.REDDIT_USER_AGENT || "SubredditAnalyzer/1.0",
-          },
-        })
+        const doFetch = async (tok: string) =>
+          fetch(url, {
+            headers: {
+              Authorization: `Bearer ${tok}`,
+              "User-Agent": process.env.REDDIT_USER_AGENT || "SubredditAnalyzer/1.0",
+            },
+          })
 
+        let response = await doFetch(accessToken)
+        if (!response.ok && response.status === 401) {
+          accessToken = await getAccessToken()
+          response = await doFetch(accessToken)
+        }
         if (!response.ok) {
-          if (response.status === 401) {
-            accessToken = await getAccessToken()
-            const retryResponse = await fetch(url, {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "User-Agent": process.env.REDDIT_USER_AGENT || "SubredditAnalyzer/1.0",
-              },
-            })
-            if (!retryResponse.ok) {
-              throw new Error(`Reddit API error after retry: ${retryResponse.statusText}`)
-            }
-            const retryData = (await retryResponse.json()) as RedditApiResponse
-            const children = retryData?.data?.children || []
-            if (children.length === 0) break
-            posts.push(...children)
-            sessions.set(sid, { phase: "Fetching posts…", fetched: posts.length, total: maxLimit, done: false })
-            after = retryData?.data?.after
-            if (!after) break
-            await new Promise((r) => setTimeout(r, 1000))
-            continue
-          } else if (response.status === 404) {
-            throw new Error("User not found")
-          } else {
-            throw new Error(`Reddit API error: ${response.statusText} (${response.status})`)
-          }
+          if (response.status === 404) throw new Error("User not found")
+          throw new Error(`Reddit API error: ${response.statusText} (${response.status})`)
         }
 
         const data = (await response.json()) as RedditApiResponse
         const children = data?.data?.children || []
         if (children.length === 0) break
+
         posts.push(...children)
         sessions.set(sid, { phase: "Fetching posts…", fetched: posts.length, total: maxLimit, done: false })
+
         after = data?.data?.after
         if (!after) break
-        await new Promise((r) => setTimeout(r, 1000))
+        await sleep(1000)
       }
     } catch (error: any) {
       sessions.delete(sid)
       return NextResponse.json({ error: error.message || "Failed to fetch Reddit data" }, { status: 500 })
     }
 
-    sessions.set(sid, { phase: "Processing data…", fetched: posts.length, total: posts.length, done: false })
+    const cutoffSecs =
+      toDateRangeCutoff(
+        dateRange === "all" ? "all" :
+          dateRange === "7" ? 7 :
+            dateRange === "30" ? 30 :
+              dateRange === "60" ? 60 :
+                dateRange === "90" ? 90 : "all"
+      )
+
+    const filtered = cutoffSecs == null ? posts : posts.filter(p => (p?.data?.created_utc || 0) >= cutoffSecs)
+
+    sessions.set(sid, { phase: "Processing data…", fetched: filtered.length, total: filtered.length, done: false })
+
+    const created = filtered.map(p => p.data.created_utc)
+    const nowSecs = Math.floor(Date.now() / 1000)
+    const minDate = created.length ? Math.min(...created) : nowSecs
+    const maxDate = created.length ? Math.max(...created) : nowSecs
+    const datasetSpanDays = Math.max(1, Math.ceil((maxDate - minDate) / 86400))
 
     const subredditMap = new Map<string, SubredditStats>()
-    for (const post of posts) {
+    for (const post of filtered) {
       const subreddit = post.data.subreddit
       if (!subredditMap.has(subreddit)) {
         subredditMap.set(subreddit, {
@@ -298,106 +274,152 @@ export async function POST(request: NextRequest) {
           lastPostDate: 0,
         })
       }
-      const stats = subredditMap.get(subreddit)!
-      stats.totalPosts++
-      stats.totalUpvotes += post.data.score
-      stats.totalComments += post.data.num_comments
-      stats.posts.push({
-        score: post.data.score,
-        comments: post.data.num_comments,
-        created: post.data.created_utc,
-      })
-      stats.lastPostDate = Math.max(stats.lastPostDate, post.data.created_utc)
+      const s = subredditMap.get(subreddit)!
+      s.totalPosts++
+      s.totalUpvotes += post.data.score
+      s.totalComments += post.data.num_comments
+      s.posts.push({ score: post.data.score, comments: post.data.num_comments, created: post.data.created_utc })
+      s.lastPostDate = Math.max(s.lastPostDate, post.data.created_utc)
     }
 
-    let subredditStats: (SubredditRow & { Subreddit_Subscribers?: number })[] =
+    let subredditStats: (SubredditRow & {
+      Subreddit_Subscribers?: number
+      Post_Frequency: string
+      WPI_Score?: number
+      WPI_Rating?: string
+      Min_Upvotes?: number
+      Q1_Upvotes?: number
+      Median_Upvotes?: number
+      Q3_Upvotes?: number
+      Max_Upvotes?: number
+    })[] =
       Array.from(subredditMap.values()).map((stats) => {
-        const avgUpvotes = stats.totalPosts > 0 ? stats.totalUpvotes / stats.totalPosts : 0
-        const avgComments = stats.totalPosts > 0 ? stats.totalComments / stats.totalPosts : 0
-        const sortedScores = stats.posts.map((p) => p.score).sort((a, b) => a - b)
-        const medianUpvotes =
-          sortedScores.length > 0
-            ? sortedScores.length % 2 === 0
-              ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
-              : sortedScores[Math.floor(sortedScores.length / 2)]
-            : 0
+        const totalPosts = stats.totalPosts
+        const avgUpvotes = totalPosts > 0 ? stats.totalUpvotes / totalPosts : 0
+        const avgComments = totalPosts > 0 ? stats.totalComments / totalPosts : 0
+        const scores = stats.posts.map((p) => p.score).sort((a, b) => a - b)
+        const pct = (arr: number[], p: number) => {
+          if (arr.length === 0) return 0
+          const pos = (arr.length - 1) * p
+          const lo = Math.floor(pos)
+          const hi = Math.ceil(pos)
+          if (lo === hi) return arr[lo]
+          const w = pos - lo
+          return arr[lo] * (1 - w) + arr[hi] * w
+        }
+        const minU = scores.length ? scores[0] : 0
+        const q1U = pct(scores, 0.25)
+        const medU = pct(scores, 0.5)
+        const q3U = pct(scores, 0.75)
+        const maxU = scores.length ? scores[scores.length - 1] : 0
+
+        const postsPerDay = totalPosts / Math.max(1, datasetSpanDays)
+        const freq =
+          postsPerDay >= 1
+            ? `${Math.round(postsPerDay * 10) / 10} posts per day`
+            : `1 post per ${Math.max(1, Math.round(1 / Math.max(postsPerDay, 1e-9)))} days`
 
         return {
           Subreddit: stats.subreddit,
-          Total_Posts: stats.totalPosts,
+          Total_Posts: totalPosts,
           Avg_Upvotes_Per_Post: Math.round(avgUpvotes * 100) / 100,
           Avg_Comments_Per_Post: Math.round(avgComments * 100) / 100,
-          Median_Upvotes: Math.round(medianUpvotes * 100) / 100,
+          Median_Upvotes: Math.round(medU * 100) / 100,
           Total_Upvotes: stats.totalUpvotes,
           Total_Comments: stats.totalComments,
           LastDateTimeUTC: new Date(stats.lastPostDate * 1000).toISOString(),
+          Post_Frequency: freq,
+          Min_Upvotes: Math.round(minU),
+          Q1_Upvotes: Math.round(q1U),
+          Q3_Upvotes: Math.round(q3U),
+          Max_Upvotes: Math.round(maxU),
         }
       })
 
-    subredditStats.sort((a, b) => b.Avg_Upvotes_Per_Post - a.Avg_Upvotes_Per_Post)
-
-    const allDates = posts.map((p) => p.data.created_utc)
-    const minDate = Math.min(...allDates)
-    const maxDate = Math.max(...allDates)
-    const datasetSpanDays = Math.ceil((maxDate - minDate) / (60 * 60 * 24))
-
-    const previewTop10 = subredditStats.slice(0, 10)
-
     if (inclSubs) {
-      sessions.set(sid, {
-        phase: "Fetching subreddit member counts…",
-        fetched: 0,
-        total: subredditStats.length,
-        done: false,
-      });
-
-      subCounts = new Map<string, number>();
-      let i = 0;
+      sessions.set(sid, { phase: "Fetching subreddit member counts…", fetched: 0, total: subredditStats.length, done: false })
+      subCounts = new Map<string, number>()
+      let i = 0
       for (const name of subredditStats.map((x) => x.Subreddit)) {
-        const count = await fetchSubredditSubs(name, accessToken);
-        subCounts.set(name, count);
-        i++;
-
-        sessions.set(sid, {
-          phase: "Fetching subreddit member counts…",
-          fetched: i,
-          total: subredditStats.length,
-          done: false,
-        });
-
-        await sleep(120);
+        const count = await fetchSubredditSubs(name, accessToken)
+        subCounts.set(name, count)
+        i++
+        sessions.set(sid, { phase: "Fetching subreddit member counts…", fetched: i, total: subredditStats.length, done: false })
+        await sleep(120)
       }
-
-      subredditStats = subredditStats.map((r) => ({
-        ...r,
-        Subreddit_Subscribers: subCounts?.get(r.Subreddit) ?? 0,
-      }));
-
-      sessions.set(sid, {
-        phase: "Building file…",
-        fetched: posts.length,
-        total: posts.length,
-        done: false,
-      });
+      subredditStats = subredditStats.map((r) => ({ ...r, Subreddit_Subscribers: subCounts?.get(r.Subreddit) ?? 0 }))
+      sessions.set(sid, { phase: "Building file…", fetched: filtered.length, total: filtered.length, done: false })
     }
 
+    if (inclPER) {
+      const sum = (a: any[], f: (x: any) => number) => a.reduce((t, x) => t + (Number(f(x)) || 0), 0)
+      const totalPostsAll = Math.max(1, sum(subredditStats, (r) => r.Total_Posts || 0))
+      const useMedian = !!inclMed
 
-    sessions.set(sid, { phase: "Generating Excel file…", fetched: posts.length, total: posts.length, done: false })
+      const wAvgUp = (inclVote
+        ? sum(subredditStats, (r) => r.Total_Upvotes || 0) / totalPostsAll
+        : sum(subredditStats, (r) => (useMedian ? (r.Median_Upvotes || 0) : (r.Avg_Upvotes_Per_Post || 0)) * (r.Total_Posts || 0)) / totalPostsAll)
+
+      const wAvgComm = (inclComm
+        ? sum(subredditStats, (r) => r.Total_Comments || 0) / totalPostsAll
+        : sum(subredditStats, (r) => (r.Avg_Comments_Per_Post || 0) * (r.Total_Posts || 0)) / totalPostsAll)
+
+      const avgPostsPerSub = subredditStats.length ? totalPostsAll / subredditStats.length : 0
+      const subsScale = 10000
+
+      const scoreOf = (row: any) => {
+        const avgUp = useMedian ? (row.Median_Upvotes || 0) : (row.Avg_Upvotes_Per_Post || 0)
+        const avgComm = row.Avg_Comments_Per_Post || 0
+        const U = wAvgUp > 0 ? avgUp / wAvgUp : 0
+        const C = wAvgComm > 0 ? avgComm / wAvgComm : 0
+
+        let E = 1
+        if (inclSubs) {
+          const subs = row.Subreddit_Subscribers || 0
+          const denom = Math.max(1, subs / subsScale)
+          E = (avgUp + 2 * avgComm) / denom
+        }
+
+        const postsPerDay = (row.Total_Posts || 0) / Math.max(1, datasetSpanDays)
+        const rawV = avgPostsPerSub > 0 ? postsPerDay / avgPostsPerSub : 1
+        const V = Math.max(0.75, Math.min(1.25, rawV))
+
+        const score = Math.round(100 * (0.5 * U + 0.3 * C + 0.2 * E) * V)
+        const rating =
+          score >= 90 ? "Excellent" :
+            score >= 70 ? "Good" :
+              score >= 50 ? "Average" :
+                score >= 30 ? "Underperforming" : "Poor"
+
+        return { score, rating }
+      }
+
+      subredditStats = subredditStats.map((r) => {
+        const { score, rating } = scoreOf(r)
+        return { ...r, WPI_Score: score, WPI_Rating: rating }
+      })
+    }
+
+    subredditStats.sort((a, b) => (b.Avg_Upvotes_Per_Post || 0) - (a.Avg_Upvotes_Per_Post || 0))
+    const previewTop10 = subredditStats.slice(0, 10)
+
+    sessions.set(sid, { phase: "Generating Excel file…", fetched: filtered.length, total: filtered.length, done: false })
 
     const toExcelUTCDate = (secs: number) => {
       const d = new Date(secs * 1000)
       return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
     }
 
-    const { buffer, filename } = await buildWorkbook(subredditStats, {
+    const { buffer, filename } = await buildWorkbook(subredditStats as any, {
       username,
       inclMed,
       inclVote,
       inclComm,
       inclSubs,
+      inclPER,
     })
 
-    const rawRows: RawPostRow[] = posts.map((p) => ({
+    const rawRows: RawPostRow[] = filtered.map((p) => ({
       Subreddit: p.data.subreddit,
       Upvotes: p.data.score,
       Comments: p.data.num_comments,
@@ -413,12 +435,54 @@ export async function POST(request: NextRequest) {
     const rawId = crypto.randomUUID()
     files.set(rawId, { buffer: rawBuffer, filename: rawFilename, createdAt: Date.now() })
 
-    sessions.set(sid, { phase: "Complete", fetched: posts.length, total: posts.length, done: true })
+    sessions.set(sid, { phase: "Complete", fetched: filtered.length, total: filtered.length, done: true })
+
+    type DayBucket = { upSum: number; upCnt: number; comSum: number; comCnt: number };
+    const byDay = new Map<string, Map<string, DayBucket>>();
+
+    for (const p of filtered) {
+      const sub = p.data.subreddit;
+      const day = new Date(p.data.created_utc * 1000).toISOString().slice(0, 10); 
+      if (!byDay.has(day)) byDay.set(day, new Map());
+      const dayMap = byDay.get(day)!;
+      if (!dayMap.has(sub)) dayMap.set(sub, { upSum: 0, upCnt: 0, comSum: 0, comCnt: 0 });
+      const b = dayMap.get(sub)!;
+      b.upSum += p.data.score;
+      b.upCnt += 1;
+      b.comSum += p.data.num_comments;
+      b.comCnt += 1;
+    }
+
+    const dates = Array.from(byDay.keys()).sort();
+    const subsAll = Array.from(subredditMap.keys());
+
+    const tsUpvotes: Array<Record<string, number | string | null>> = [];
+    const tsComments: Array<Record<string, number | string | null>> = [];
+
+    for (const d of dates) {
+      const upRow: Record<string, number | string | null> = { date: d };
+      const comRow: Record<string, number | string | null> = { date: d };
+      const dayMap = byDay.get(d)!;
+
+      for (const s of subsAll) {
+        const cell = dayMap.get(s);
+        if (cell && cell.upCnt > 0) {
+          upRow[s] = cell.upSum / cell.upCnt;        
+          comRow[s] = cell.comSum / cell.comCnt;      
+        } else {
+          upRow[s] = null;
+          comRow[s] = null;
+        }
+      }
+      tsUpvotes.push(upRow);
+      tsComments.push(comRow);
+    }
 
     return NextResponse.json({
       datasetSpanDays,
       previewTop10,
       preview: subredditStats,
+      timeSeries: { upvotes: tsUpvotes, comments: tsComments, subreddits: subsAll },
       files: [
         { id: analysisId, filename },
         { id: rawId, filename: rawFilename },
@@ -429,7 +493,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const sid = searchParams.get("sid")
@@ -439,11 +502,9 @@ export async function DELETE(request: NextRequest) {
     sessions.delete(sid)
     return NextResponse.json({ success: true })
   }
-
   if (fileId) {
     files.delete(fileId)
     return NextResponse.json({ success: true })
   }
-
   return NextResponse.json({ error: "Invalid request" }, { status: 400 })
 }
