@@ -44,7 +44,7 @@ export default function CaptionGeneratorPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [aiMessage, setAiMessage] = useState<string>(
-    "Ready to generate seductive captions! Fill out the form to get started.",
+    "Let's get creative! Choose the mode below and let's get going.",
   )
   const [showSuccess, setShowSuccess] = useState(false)
 
