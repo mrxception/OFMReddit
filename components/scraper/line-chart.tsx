@@ -1,38 +1,37 @@
-"use client";
+"use client"
 
-import React from "react";
-import {
-  LineChart as RLineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  Label,
-} from "recharts";
+import React from "react"
+import { LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label } from "recharts"
 
-export type TimeSeriesRow = { date: string; [series: string]: number | string | null | undefined };
+export type TimeSeriesRow = { date: string; [series: string]: number | string | null | undefined }
 
-interface PerformanceLineChartProps {
-  data: TimeSeriesRow[];
-  subreddits: string[];
-  metricLabel: string;
-  domain: [number, number];
+interface Props {
+  data: TimeSeriesRow[]
+  seriesKeys: string[]
+  metricLabel: string
+  domain: [number, number]
 }
 
-const COLORS = [
-  "#4F46E5", "#06B6D4", "#22C55E", "#F59E0B", "#EF4444",
-  "#14B8A6", "#8B5CF6", "#0EA5E9", "#84CC16", "#E11D48",
-  "#10B981", "#F97316", "#A855F7", "#3B82F6", "#64748B",
-];
+const TEAL = "rgb(20,184,166)"
+
+function fmtDate(d: string) {
+  if (!d) return d
+  if (d.includes("-")) {
+    const [y, m, day] = d.split("-")
+    return `${day}/${m}/${y}`
+  }
+  if (d.includes("/")) {
+    const [y, m, day] = d.split("/")
+    return `${day}/${m}/${y}`
+  }
+  return d
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload || !payload.length) return null;
+  if (!active || !payload || !payload.length) return null
   return (
     <div className="rounded-md border border-border bg-card/90 p-3 shadow-lg">
-      <p className="font-semibold text-foreground">{label}</p>
+      <p className="font-semibold text-foreground">{fmtDate(label)}</p>
       <ul className="mt-2 space-y-1 text-sm">
         {payload
           .slice()
@@ -44,25 +43,24 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           ))}
       </ul>
     </div>
-  );
-};
+  )
+}
 
-const PerformanceLineChart: React.FC<PerformanceLineChartProps> = ({
-  data,
-  subreddits,
-  metricLabel,
-  domain,
-}) => {
-  const cs = getComputedStyle(document.documentElement);
-  const tickColor = cs.getPropertyValue("--muted-foreground")?.trim() || "#6b7280";
-  const gridStrokeColor = "rgba(127,127,127,0.15)";
-  const overallAvgColor = cs.getPropertyValue("--foreground")?.trim() || "#ffffff";
+export default function PerformanceLineChart({ data, seriesKeys, metricLabel, domain }: Props) {
+  const cs = getComputedStyle(document.documentElement)
+  const tickColor = cs.getPropertyValue("--muted-foreground")?.trim() || "#6b7280"
+  const gridStrokeColor = "rgba(127,127,127,0.15)"
+  const primary = cs.getPropertyValue("--sidebar-primary")?.trim() || "#4F46E5"
+
+  const colors: Record<string, string> = {}
+  if (seriesKeys[0]) colors[seriesKeys[0]] = primary
+  if (seriesKeys[1]) colors[seriesKeys[1]] = TEAL
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <RLineChart data={data} margin={{ top: 6, right: 24, left: 40, bottom: 6 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
-        <XAxis dataKey="date" tick={{ fill: tickColor }} stroke={tickColor} />
+        <XAxis dataKey="date" tick={{ fill: tickColor }} stroke={tickColor} tickFormatter={fmtDate} />
         <YAxis
           tick={{ fill: tickColor }}
           stroke={tickColor}
@@ -70,38 +68,25 @@ const PerformanceLineChart: React.FC<PerformanceLineChartProps> = ({
           domain={domain}
           allowDataOverflow
         >
-          <Label
-            value={metricLabel}
-            angle={-90}
-            position="insideLeft"
-            style={{ textAnchor: "middle", fill: tickColor }}
-          />
+          <Label value={metricLabel} angle={-90} position="insideLeft" style={{ textAnchor: "middle", fill: tickColor }} />
         </YAxis>
         <Tooltip content={<CustomTooltip />} />
         <Legend iconSize={10} />
-        {subreddits.map((sub, idx) => {
-          const isOverall = sub === "Overall Average";
-          const color = isOverall ? overallAvgColor : COLORS[idx % COLORS.length];
-          return (
-            <Line
-              key={sub}
-              type="monotone"
-              dataKey={sub}
-              name={sub}
-              stroke={color}
-              strokeWidth={2}
-              strokeDasharray={isOverall ? "5 5" : "0"}
-              // Always show dots & color them so they’re visible in dark mode
-              dot={{ r: 2, stroke: color, fill: color }}
-              activeDot={{ r: 4, stroke: color, fill: color }}
-              connectNulls
-              isAnimationActive={false}
-            />
-          );
-        })}
+        {seriesKeys.map((k, i) => (
+          <Line
+            key={k}
+            type="monotone"
+            dataKey={k}
+            name={k}
+            stroke={colors[k] || primary}
+            strokeWidth={2}
+            dot={{ r: 2, stroke: colors[k] || primary, fill: colors[k] || primary }}
+            activeDot={{ r: 4, stroke: colors[k] || primary, fill: colors[k] || primary }}
+            connectNulls
+            isAnimationActive={false}
+          />
+        ))}
       </RLineChart>
     </ResponsiveContainer>
-  );
-};
-
-export default PerformanceLineChart;
+  )
+}

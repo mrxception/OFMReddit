@@ -1,3 +1,4 @@
+// scatter-plot-section.tsx
 "use client"
 
 import React from "react"
@@ -37,7 +38,9 @@ type Point = {
 
 interface Props {
   rows: any[]
+  rows2?: any[]
   username: string
+  username2?: string
   s: { [k: string]: string }
   defaultX?: AxisChoice
   defaultY?: AxisChoice
@@ -45,7 +48,9 @@ interface Props {
 
 export default function ScatterPlotSection({
   rows,
+  rows2,
   username,
+  username2,
   s,
   defaultX = "Total_Posts",
   defaultY = "Average_Upvotes",
@@ -59,9 +64,9 @@ export default function ScatterPlotSection({
   const [xDomain, setXDomain] = React.useState<AxisDomain>([0, "auto"])
   const [yDomain, setYDomain] = React.useState<AxisDomain>([0, "auto"])
 
-  const all = React.useMemo<Point[]>(
-    () =>
-      (rows || []).map((r: any) => ({
+  const mapRows = React.useCallback(
+    (arr: any[]): Point[] =>
+      (arr || []).map((r: any) => ({
         subreddit: r?.Subreddit ?? "",
         members: Number(r?.Subreddit_Subscribers ?? 0),
         Total_Posts: Number(r?.Total_Posts ?? 0),
@@ -72,10 +77,13 @@ export default function ScatterPlotSection({
         Total_Comments: Number(r?.Total_Comments ?? 0),
         Subreddit_Subscribers: Number(r?.Subreddit_Subscribers ?? 0),
       })),
-    [rows]
+    []
   )
 
-  const hasSubs = React.useMemo(() => all.some(p => p.Subreddit_Subscribers > 0), [all])
+  const all1 = React.useMemo<Point[]>(() => mapRows(rows || []), [rows, mapRows])
+  const all2 = React.useMemo<Point[]>(() => mapRows(rows2 || []), [rows2, mapRows])
+
+  const hasSubs = React.useMemo(() => [...all1, ...all2].some(p => p.Subreddit_Subscribers > 0), [all1, all2])
 
   const AXIS_OPTIONS: { value: AxisChoice; label: string }[] = React.useMemo(() => {
     const base: { value: AxisChoice; label: string }[] = [
@@ -116,15 +124,26 @@ export default function ScatterPlotSection({
   const xLabel = React.useMemo(() => labelFor(xAxisChoice), [labelFor, xAxisChoice])
   const yLabel = React.useMemo(() => labelFor(yAxisChoice), [labelFor, yAxisChoice])
 
-  const datasets = React.useMemo(() => [{ label: "Overall", data: all }], [all])
+  const hasSecond = React.useMemo(() => Array.isArray(rows2) && rows2.length > 0 && !!username2, [rows2, username2])
+
+  const datasets = React.useMemo(
+    () =>
+      hasSecond
+        ? [
+          { label: `u/${username || "user1"}`, data: all1, color: "var(--sidebar-primary)" },
+          { label: `u/${username2 || "user2"}`, data: all2, color: "rgb(20,184,166)" },
+        ]
+        : [{ label: `u/${username || "user"}`, data: all1, color: "var(--sidebar-primary)" }],
+    [hasSecond, all1, all2, username, username2]
+  )
 
   const autoMaxFor = React.useCallback(
     (k: AxisKey) => {
-      const vals = all.map(d => Number((d as any)[k] ?? 0))
+      const vals = [...all1, ...all2].map(d => Number((d as any)[k] ?? 0))
       const max = vals.length ? Math.max(...vals) : 0
       return Math.ceil((max || 10) * 1.05)
     },
-    [all]
+    [all1, all2]
   )
 
   const AxisDomainControl: React.FC<{
@@ -137,7 +156,6 @@ export default function ScatterPlotSection({
     React.useEffect(() => {
       setLocal(domain[1] === "auto" ? "" : String(domain[1]))
     }, [domain])
-
     const apply = (v: string) => {
       if (v === "") {
         onChange([domain[0], "auto"])
@@ -147,7 +165,6 @@ export default function ScatterPlotSection({
       if (!Number.isFinite(n) || n < 0) return
       onChange([domain[0], n])
     }
-
     return (
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">{label}:</span>
@@ -182,13 +199,7 @@ export default function ScatterPlotSection({
         aria-controls="scatterplot-content"
       >
         <h2 className="text-xl font-bold">{`Subreddit Performance: ${yLabel} vs. ${xLabel}`}</h2>
-        <svg
-          className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+        <svg className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </header>
@@ -207,16 +218,10 @@ export default function ScatterPlotSection({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-muted-foreground">Average Type:</span>
                 <div className="flex rounded bg-muted p-1">
-                  <button
-                    onClick={() => setAverageMetricKey("avg")}
-                    className={`px-3 py-1 text-sm rounded ${averageMetricKey === "avg" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}
-                  >
+                  <button onClick={() => setAverageMetricKey("avg")} className={`px-3 py-1 text-sm rounded ${averageMetricKey === "avg" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}>
                     Mean Average
                   </button>
-                  <button
-                    onClick={() => setAverageMetricKey("median")}
-                    className={`px-3 py-1 text-sm rounded ${averageMetricKey === "median" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}
-                  >
+                  <button onClick={() => setAverageMetricKey("median")} className={`px-3 py-1 text-sm rounded ${averageMetricKey === "median" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}>
                     Median Average
                   </button>
                 </div>
@@ -226,7 +231,7 @@ export default function ScatterPlotSection({
 
           <div style={{ height: "500px" }} className="mt-4">
             <ScatterPlot
-              datasets={datasets} 
+              datasets={datasets}
               xAxis={xKey}
               yAxis={yKey}
               xDomain={xDomain}
