@@ -1,4 +1,4 @@
-// components/scraper/scatter-plot.tsx
+// scatter-plot.tsx
 "use client"
 
 import React, { useMemo } from "react"
@@ -17,7 +17,7 @@ type AxisKey =
 type AxisDomain = [number, number] | ["auto", number] | [number, "auto"] | ["auto", "auto"]
 
 interface Props {
-  datasets: { label?: string; data: any[] }[]
+  datasets: { label?: string; data: any[]; color?: string }[]
   xAxis: AxisKey
   yAxis: AxisKey
   xDomain: AxisDomain
@@ -25,18 +25,33 @@ interface Props {
   xAxisLabel: string
   yAxisLabel: string
   height?: number
+
+  xTickCount?: number
+  xTickStep?: number
+  xTicks?: number[]
+  xScale?: "linear" | "log" | "sqrt"
+}
+
+const buildTicksByStep = (min: number, max: number, step: number) => {
+  if (!isFinite(min) || !isFinite(max) || !isFinite(step) || step <= 0) return undefined
+  const start = Math.ceil(min / step) * step
+  const ticks: number[] = []
+  for (let v = start; v <= max; v += step) ticks.push(v)
+  if (ticks[0] !== min) ticks.unshift(min)
+  if (ticks[ticks.length - 1] !== max) ticks.push(max)
+  return ticks
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const d = payload[0]?.payload || {}
-    const showMembers = Number(d.members ?? d.Subscriber_Members ?? 0) > 0
+    const showMembers = Number(d.members ?? d.Subscriber_Members ?? d.Subreddit_Subscribers ?? 0) > 0
     return (
       <div className="bg-white/80 dark:bg-gray-900/80 p-3 rounded-md border border-border shadow-lg">
         <p className="font-bold" style={{ color: payload[0]?.fill }}>{d.subreddit}</p>
         {payload[0] && <p className="text-sm">{`${payload[0].name}: ${Number(payload[0].value).toLocaleString()}`}</p>}
         {payload[1] && <p className="text-sm">{`${payload[1].name}: ${Number(payload[1].value).toLocaleString()}`}</p>}
-        {showMembers && <p className="text-sm">{`Subscribers: ${Number(d.members ?? 0).toLocaleString()}`}</p>}
+        {showMembers && <p className="text-sm">{`Subscribers: ${Number(d.members ?? d.Subreddit_Subscribers ?? 0).toLocaleString()}`}</p>}
       </div>
     )
   }
@@ -53,6 +68,7 @@ export default function ScatterPlot({
   yAxisLabel,
   height = 500,
 }: Props) {
+  const palette = useMemo(() => ["var(--sidebar-primary)", "rgb(20,184,166)"], [])
   const all = useMemo(() => datasets.flatMap((d) => d.data || []), [datasets])
   const hasMembers = useMemo(() => all.some((p) => Number(p?.members ?? p?.Subreddit_Subscribers ?? 0) > 0), [all])
 
@@ -93,9 +109,12 @@ export default function ScatterPlot({
           tick={{ fill: tickColor }}
           stroke={tickColor}
           domain={finalX}
-          allowDataOverflow={false}
-          tickCount={8}
-          tickFormatter={(t) => Number(t).toLocaleString()}
+          allowDataOverflow={false} 
+          tickCount={12}
+          allowDecimals={false}
+          tickFormatter={(t) =>
+            new Intl.NumberFormat(undefined, { maximumFractionDigits: 0, minimumFractionDigits: 0 }).format(Number(t))
+          }
         >
           <Label value={xAxisLabel} offset={-30} position="insideBottom" fill={tickColor} style={{ textAnchor: "middle" }} />
         </XAxis>
@@ -117,7 +136,14 @@ export default function ScatterPlot({
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
         {datasets.length > 1 && <Legend verticalAlign="top" height={36} iconSize={10} />}
         {filtered.map((ds, i) => (
-          <Scatter key={i} data={ds.data} fill="var(--sidebar-primary)" fillOpacity={0.75} />
+          <Scatter
+            key={i}
+            name={ds.label || `Series ${i + 1}`}
+            data={ds.data}
+            fill={ds.color || palette[i % palette.length]}
+            stroke={ds.color || palette[i % palette.length]}
+            fillOpacity={0.75}
+          />
         ))}
       </ScatterChart>
     </ResponsiveContainer>

@@ -6,16 +6,12 @@ interface FormProps {
     progRef: React.RefObject<HTMLElement | null>
     status: string
     busy: boolean
-
     username: string
     setUsername: (v: string) => void
-
-    // NEW: optional 2nd username (UI-only)
     showSecondUsername: boolean
     setShowSecondUsername: (v: boolean) => void
     username2: string
     setUsername2: (v: string) => void
-
     dateRange: string
     setDateRange: (v: string) => void
     limit: number
@@ -30,7 +26,6 @@ interface FormProps {
     setInclPER: (v: boolean) => void
     inclMed: boolean
     setInclMed: (v: boolean) => void
-
     s: { [key: string]: string }
 }
 
@@ -71,9 +66,8 @@ export default function Form(props: FormProps) {
 
     return (
         <form onSubmit={onSubmit}>
-            {/* USERNAME ROW */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-4 mb-4">
-                <div className="sm:col-span-1 lg:col-span-2">
+                <div className="sm:col-span-1 lg:grid-cols-2 lg:col-span-2">
                     <label htmlFor="username" className="block text-sm font-semibold text-foreground mb-2">
                         Reddit Username
                     </label>
@@ -94,7 +88,6 @@ export default function Form(props: FormProps) {
                         <label htmlFor="username2" className="block text-sm font-semibold text-foreground mb-2">
                             Another Username
                         </label>
-
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
                             <input
                                 className={`${s.csvinput} lg:col-span-2`}
@@ -117,7 +110,6 @@ export default function Form(props: FormProps) {
                         </div>
                     </div>
                 ) : (
-                    // When hidden, the add button takes MORE space on lg
                     <div className="sm:col-span-1 lg:col-span-2 flex items-end">
                         <button
                             type="button"
@@ -131,8 +123,8 @@ export default function Form(props: FormProps) {
                     </div>
                 )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-14">
-                {/* EXISTING CONTROLS (unchanged) */}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 <div>
                     <label htmlFor="dateRange" className="block text-sm font-semibold text-foreground mb-2">
                         Date Range
@@ -174,8 +166,6 @@ export default function Form(props: FormProps) {
                 </div>
             </div>
 
-
-            {/* CHECKBOXES + PROGRESS (unchanged) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input

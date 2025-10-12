@@ -120,7 +120,7 @@
   position: sticky;
   top: 0;
   left: 0;
-  z-index: 30;
+  z-index: 18;
   border-top-left-radius: var(--radius-md);
   background: var(--color-muted);
   box-shadow:
@@ -145,7 +145,7 @@
 .rowhead {
   position: sticky;
   left: 0;
-  z-index: 21;   
+  z-index: 19;   
   box-shadow: 1px 0 0 var(--color-border);
 
   background: var(--color-muted);

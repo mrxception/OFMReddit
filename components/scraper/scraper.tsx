@@ -1,3 +1,4 @@
+// scraper.tsx
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -9,13 +10,14 @@ import ExcelSheetSection from "./excel-sheet-section"
 import ScatterPlotSection from "./scatter-plot-section"
 import BarChartSection from "./bar-chart-section"
 import BoxPlotSection from "./box-plot-section"
-import LineChartSection from "./line-chart-section";
+import LineChartSection from "./line-chart-section"
 import KeyInsightsSection from "./key-insights-section"
 import KPI from "./kpi-section"
 
 export default function Scraper() {
   const [showSecondUsername, setShowSecondUsername] = useState(false)
   const [username2, setUsername2] = useState("")
+  const [runUsername2, setRunUsername2] = useState("")
 
   const [username, setUsername] = useState("")
   const [runUsername, setRunUsername] = useState("")
@@ -35,6 +37,7 @@ export default function Scraper() {
   const [msg, setMsg] = useState<{ type: string; text: string } | null>(null)
   const [files, setFiles] = useState<Array<{ id: string; filename: string }>>([])
   const [preview, setPreview] = useState<any[]>([])
+  const [preview2, setPreview2] = useState<any[] | null>(null)
   const [spanDays, setSpanDays] = useState<number | null>(null)
 
   const sidRef = useRef(globalThis.crypto?.randomUUID?.() ? crypto.randomUUID() : String(Math.random()))
@@ -42,10 +45,15 @@ export default function Scraper() {
   const historyRef = useRef<HTMLDivElement>(null)
 
   const [timeSeries, setTimeSeries] = useState<{
-    upvotes: Array<{ date: string;[k: string]: number | string | null }>;
-    comments: Array<{ date: string;[k: string]: number | string | null }>;
-    subreddits: string[];
-  } | null>(null);
+    upvotes: Array<{ date: string;[k: string]: number | string | null }>
+    comments: Array<{ date: string;[k: string]: number | string | null }>
+    subreddits: string[]
+  } | null>(null)
+  const [timeSeries2, setTimeSeries2] = useState<{
+    upvotes: Array<{ date: string;[k: string]: number | string | null }>
+    comments: Array<{ date: string;[k: string]: number | string | null }>
+    subreddits: string[]
+  } | null>(null)
 
   function setProgress(frac: number) {
     if (!progRef.current) return
@@ -110,13 +118,16 @@ export default function Scraper() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const frozen = (username || "").trim()
-    setRunUsername(frozen)
+    const frozen1 = (username || "").trim()
+    const frozen2 = (showSecondUsername ? (username2 || "").trim() : "")
+    setRunUsername(frozen1)
+    setRunUsername2(frozen2)
     setBusy(true)
     setMsg(null)
     setStatus("Starting…")
     setProgress(0)
     setPreview([])
+    setPreview2(null)
     setSpanDays(null)
 
     let stopPoll = false
@@ -131,7 +142,9 @@ export default function Scraper() {
               const frac = Math.max(0, Math.min(1, total ? fetched / total : 0))
               setProgress(frac)
               setStatus(`${p.phase || "Working…"} ${fetched}/${total}`)
-              if (p.done && frac < 1) setProgress(1)
+              if (p.done && frac < 1) {
+                setProgress(1)
+              }
             }
           } catch { }
           await new Promise((r) => setTimeout(r, 400))
@@ -143,7 +156,8 @@ export default function Scraper() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: frozen,
+          username: frozen1,
+          username2: frozen2 || undefined,
           limit,
           dateRange,
           inclSubs: inclSubs ? 1 : 0,
@@ -166,16 +180,11 @@ export default function Scraper() {
       }
 
       const payload = await res.json()
-      setPreview(Array.isArray(payload.preview) ? payload.preview : []);
-      setTimeSeries(payload.timeSeries ?? null);
-
-      setSpanDays(
-        typeof payload.datasetSpanDays === "number" && isFinite(payload.datasetSpanDays)
-          ? payload.datasetSpanDays
-          : null,
-      )
-
       setPreview(Array.isArray(payload.preview) ? payload.preview : [])
+      setPreview2(Array.isArray(payload.preview2) ? payload.preview2 : null)
+      setTimeSeries(payload.timeSeries ?? null)
+      setTimeSeries2(payload.timeSeries2 ?? null)
+      setSpanDays(typeof payload.datasetSpanDays === "number" && isFinite(payload.datasetSpanDays) ? payload.datasetSpanDays : null)
 
       const staged = Array.isArray(payload.files) ? payload.files : payload.id ? [payload] : []
       setFiles((arr) => [...arr, ...staged])
@@ -184,10 +193,7 @@ export default function Scraper() {
       setStatus("Ready.")
       setMsg({
         type: "ok",
-        text:
-          staged.length === 0
-            ? "No files were staged."
-            : `File${staged.length > 1 ? "s" : ""}: ${staged.map((f: { id: string; filename: string }) => f.filename).join(", ")}`,
+        text: staged.length === 0 ? "No files were staged." : `File${staged.length > 1 ? "s" : ""}: ${staged.map((f: { id: string; filename: string }) => f.filename).join(", ")}`,
       })
     } catch (err: any) {
       setProgress(0)
@@ -229,10 +235,7 @@ export default function Scraper() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="rounded-lg border border-border bg-card p-4 md:p-6">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Subreddit Performance Report</h1>
-          <p className="text-sm md:text-base text-muted-foreground mb-6">
-            Enter the Reddit username you want to analyze for a quantitative performance comparison across subreddits.
-          </p>
-
+          <p className="text-sm md:text-base text-muted-foreground mb-6">Enter the Reddit username you want to analyze for a quantitative performance comparison across subreddits.</p>
           <Form
             progRef={progRef}
             status={status}
@@ -254,7 +257,6 @@ export default function Scraper() {
             setInclComm={setInclComm}
             setInclPER={setInclPER}
             setInclMed={setInclMed}
-
             showSecondUsername={showSecondUsername}
             setShowSecondUsername={setShowSecondUsername}
             username2={username2}
@@ -268,8 +270,10 @@ export default function Scraper() {
         <ExcelSheetSection
           hasTop10={hasRows}
           username={runUsername}
+          username2={runUsername2}
           cols={cols}
           rows={preview}
+          rows2={preview2 ?? undefined}
           fmtUTC={fmtUTC}
           files={files}
           historyRef={historyRef}
@@ -279,10 +283,13 @@ export default function Scraper() {
           s={s}
         />
 
-        <ScatterPlotSection rows={preview} username={runUsername} s={s} />
+        <ScatterPlotSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} />
 
         <BarChartSection
           rows={preview}
+          rows2={preview2 ?? undefined}
+          username={runUsername}
+          username2={runUsername2}
           s={s}
           averageMetricKey={averageMetricKey}
           onMetricChange={setAverageMetricKey}
@@ -290,15 +297,18 @@ export default function Scraper() {
 
         <BoxPlotSection
           rows={preview}
+          rows2={preview2 ?? undefined}
+          username={runUsername}
+          username2={runUsername2}
           s={s}
           averageMetricKey={averageMetricKey}
         />
 
         <LineChartSection
-          rows={preview}
           username={runUsername}
-          s={s}
+          username2={runUsername2}
           timeSeries={timeSeries ?? undefined}
+          timeSeries2={timeSeries2 ?? undefined}
         />
 
         <KeyInsightsSection rows={preview} />
