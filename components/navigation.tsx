@@ -117,6 +117,16 @@ export default function Navigation() {
                 >
                   Caption Generator
                 </Link>
+                <Link
+                  href="/post-planner"
+                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${
+                    pathname === "/post-planner"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                 Post Planner
+                </Link>
                 {user.isAdmin && (
                   <Link
                     href="/admin"
