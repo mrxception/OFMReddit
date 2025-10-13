@@ -219,13 +219,57 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
           const data = await response.json()
           const analysis = data.analysis
 
+          let physicalFeaturesText = ""
+          if (analysis.physicalAttributes) {
+            const attrs = analysis.physicalAttributes
+            const features = []
+            if (attrs.hairColor) features.push(attrs.hairColor)
+            if (attrs.hairStyle) features.push(attrs.hairStyle)
+            if (attrs.ethnicity) features.push(attrs.ethnicity)
+            if (attrs.bodyType) features.push(attrs.bodyType)
+            if (attrs.notableFeatures && Array.isArray(attrs.notableFeatures)) {
+              features.push(...attrs.notableFeatures)
+            }
+            physicalFeaturesText = features.join(", ")
+          }
+
+          let visualContextText = ""
+          const contextParts = []
+          if (analysis.setting) contextParts.push(analysis.setting)
+          if (analysis.pose) contextParts.push(analysis.pose)
+          if (analysis.clothing?.outfit) contextParts.push(analysis.clothing.outfit)
+          if (analysis.visualElements && Array.isArray(analysis.visualElements)) {
+            contextParts.push(...analysis.visualElements.slice(0, 2))
+          }
+          visualContextText = contextParts.join(", ")
+
+          let inferredGender: "female" | "male" | "trans" = "female"
+          if (analysis.contentType) {
+            const contentLower = analysis.contentType.toLowerCase()
+            if (contentLower.includes("male") && !contentLower.includes("female")) {
+              inferredGender = "male"
+            } else if (contentLower.includes("trans")) {
+              inferredGender = "trans"
+            }
+          }
+
+          let mappedContentType: "picture" | "picture set" | "GIF/short video" = "picture"
+          if (analysis.contentType) {
+            const typeLower = analysis.contentType.toLowerCase()
+            if (typeLower.includes("set") || typeLower.includes("multiple")) {
+              mappedContentType = "picture set"
+            } else if (typeLower.includes("gif") || typeLower.includes("video")) {
+              mappedContentType = "GIF/short video"
+            }
+          }
+
           setFormData((prev) => ({
             ...prev,
-            physicalFeatures: analysis.physicalFeatures || prev.physicalFeatures,
-            gender: analysis.gender || prev.gender,
-            visualContext: analysis.visualContext || prev.visualContext,
-            contentType: analysis.contentType || prev.contentType,
-            captionMood: analysis.captionMood || prev.captionMood,
+            physicalFeatures: physicalFeaturesText || prev.physicalFeatures,
+            gender: inferredGender,
+            visualContext: visualContextText || prev.visualContext,
+            contentType: mappedContentType,
+            captionMood: analysis.mood || prev.captionMood,
           }))
 
           setAnalysisStatus("success")
@@ -243,7 +287,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
     } catch (error: any) {
       console.error("Error analyzing image:", error)
       if (typeof window !== "undefined" && (window as any).toast) {
-        ; (window as any).toast({
+        ;(window as any).toast({
           title: "Analysis Failed",
           description: error.message || "Failed to analyze image. Please try again.",
           variant: "destructive",
@@ -359,7 +403,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             onDrop={handleDrop}
           >
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${isDragging
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+                isDragging
                   ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
                   : analysisStatus === "success"
                     ? "border-green-500 bg-green-50"
@@ -368,25 +413,27 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                       : analysisStatus === "analyzing"
                         ? "border-yellow-500 bg-yellow-50"
                         : "border-[var(--border)] bg-[var(--muted)]/30"
-                }`}
+              }`}
             >
               <div className="flex flex-col items-center gap-3">
                 {analysisStatus === "analyzing" ? (
                   <Loader2 className="w-12 h-12 text-yellow-500 animate-spin" />
                 ) : (
                   <Upload
-                    className={`w-12 h-12 ${isDragging
+                    className={`w-12 h-12 ${
+                      isDragging
                         ? "text-[var(--primary)]"
                         : analysisStatus === "success"
                           ? "text-green-500"
                           : analysisStatus === "error"
                             ? "text-red-500"
                             : "text-[var(--muted-foreground)]"
-                      }`}
+                    }`}
                   />
                 )}
                 <p
-                  className={`text-base font-medium ${isDragging
+                  className={`text-base font-medium ${
+                    isDragging
                       ? "text-[var(--primary)]"
                       : analysisStatus === "success"
                         ? "text-green-600"
@@ -395,7 +442,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                           : analysisStatus === "analyzing"
                             ? "text-yellow-600"
                             : "text-[var(--muted-foreground)]"
-                    }`}
+                  }`}
                 >
                   {analysisStatus === "analyzing"
                     ? "Analyzing image... Please wait"
@@ -415,8 +462,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 <img
                   src={imageUrl || "/placeholder.svg"}
                   alt="Analyzed image"
-                  className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${isBlurred ? "blur-md" : ""
-                    }`}
+                  className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${
+                    isBlurred ? "blur-md" : ""
+                  }`}
                 />
                 <Button
                   type="button"
@@ -729,7 +777,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
               onDrop={handleDrop}
             >
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${isDragging
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+                  isDragging
                     ? "border-[var(--primary)] bg-[var(--primary)]/10 scale-[1.02]"
                     : analysisStatus === "success"
                       ? "border-green-500 bg-green-50"
@@ -738,25 +787,27 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                         : analysisStatus === "analyzing"
                           ? "border-yellow-500 bg-yellow-50"
                           : "border-[var(--border)] bg-[var(--muted)]/30"
-                  }`}
+                }`}
               >
                 <div className="flex flex-col items-center gap-3">
                   {analysisStatus === "analyzing" ? (
                     <Loader2 className="w-12 h-12 text-yellow-500 animate-spin" />
                   ) : (
                     <Upload
-                      className={`w-12 h-12 ${isDragging
+                      className={`w-12 h-12 ${
+                        isDragging
                           ? "text-[var(--primary)]"
                           : analysisStatus === "success"
                             ? "text-green-500"
                             : analysisStatus === "error"
                               ? "text-red-500"
                               : "text-[var(--muted-foreground)]"
-                        }`}
+                      }`}
                     />
                   )}
                   <p
-                    className={`text-base font-medium ${isDragging
+                    className={`text-base font-medium ${
+                      isDragging
                         ? "text-[var(--primary)]"
                         : analysisStatus === "success"
                           ? "text-green-600"
@@ -765,7 +816,7 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                             : analysisStatus === "analyzing"
                               ? "text-yellow-600"
                               : "text-[var(--muted-foreground)]"
-                      }`}
+                    }`}
                   >
                     {analysisStatus === "analyzing"
                       ? "Analyzing image... Please wait"
@@ -785,8 +836,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   <img
                     src={imageUrl || "/placeholder.svg"}
                     alt="Analyzed image"
-                    className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${isBlurred ? "blur-md" : ""
-                      }`}
+                    className={`w-full h-auto rounded-lg object-contain max-h-64 transition-all duration-300 ${
+                      isBlurred ? "blur-md" : ""
+                    }`}
                   />
                   <Button
                     type="button"
@@ -924,9 +976,9 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
                     <p>
-                      Describe the main action, setting, or focus of the content. This is not for a literal
-                      description, but to provide creative inspiration for the captions. showering, sitting on
-                      gamer chair showing boobs, titty reveal in the garden.
+                      Describe the main action, setting, or focus of the content. This is not for a literal description,
+                      but to provide creative inspiration for the captions. showering, sitting on gamer chair showing
+                      boobs, titty reveal in the garden.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -948,8 +1000,8 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
                     <p>
-                      Specify the type of content to tailor the caption style. Influences how the caption
-                      describes the media.
+                      Specify the type of content to tailor the caption style. Influences how the caption describes the
+                      media.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -989,12 +1041,10 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
                 {isContentDetailsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               </Button>
 
-
               {isContentDetailsOpen && (
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <Label className="text-[var(--card-foreground)] text-lg">Content Details</Label>
-
                   </div>
 
                   <div className="grid grid-cols-[1fr_1fr] gap-2">
@@ -1142,25 +1192,29 @@ export function CaptionForm({ onGenerate, isGenerating, error }: CaptionFormProp
             onClick={() => !isGenerating && handleToggleInteractive(!formData.isInteractive)}
           >
             <div
-              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
-                } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`relative w-16 h-7 rounded-full transition-colors duration-200 ${
+                formData.isInteractive ? "bg-blue-600" : "bg-gray-300"
+              } ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}`}
               role="switch"
               aria-checked={formData.isInteractive}
               aria-disabled={isGenerating}
             >
               <span
-                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${
+                  formData.isInteractive ? "translate-x-[2.25rem]" : "translate-x-1"
+                }`}
               />
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-white text-xs font-bold transition-opacity duration-200 ${
+                  formData.isInteractive ? "left-2 opacity-100" : "left-2 opacity-0"
+                }`}
               >
                 ON
               </span>
               <span
-                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${!formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
-                  }`}
+                className={`absolute top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold transition-opacity duration-200 ${
+                  !formData.isInteractive ? "right-2 opacity-100" : "right-2 opacity-0"
+                }`}
               >
                 OFF
               </span>
