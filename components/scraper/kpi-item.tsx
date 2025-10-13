@@ -29,7 +29,6 @@ export default function KPIItem({
       aria-label={ariaLabel || title}
       className="flex flex-col justify-center min-h-[110px] rounded-lg border border-border bg-card p-4 hover:bg-card/80"
     >
-      {/* Top Row */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium text-muted-foreground">
           <b>{title}</b>
@@ -43,10 +42,8 @@ export default function KPIItem({
         </div>
       </div>
 
-      {/* Value */}
       <div className="text-2xl font-bold text-foreground">{value ?? "—"}</div>
 
-      {/* Note */}
       {note && (
         <div className="mt-3 text-xs text-muted-foreground/80 text-left">{note}</div>
       )}

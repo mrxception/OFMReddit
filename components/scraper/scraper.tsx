@@ -1,4 +1,3 @@
-// scraper.tsx
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -23,6 +22,7 @@ export default function Scraper() {
   const [runUsername, setRunUsername] = useState("")
   const [dateRange, setDateRange] = useState("all")
   const [limit, setLimit] = useState(100)
+  const [runLimit, setRunLimit] = useState<number>(100)
 
   const [inclSubs, setInclSubs] = useState(false)
   const [inclVote, setInclVote] = useState(false)
@@ -77,7 +77,7 @@ export default function Scraper() {
       fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}`, {
         method: "DELETE",
         keepalive: true,
-      }).catch(() => { })
+      }).catch(() => {})
     }
     window.addEventListener("beforeunload", cleanup)
     return () => cleanup()
@@ -119,9 +119,10 @@ export default function Scraper() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const frozen1 = (username || "").trim()
-    const frozen2 = (showSecondUsername ? (username2 || "").trim() : "")
+    const frozen2 = showSecondUsername ? (username2 || "").trim() : ""
     setRunUsername(frozen1)
     setRunUsername2(frozen2)
+    setRunLimit(limit)
     setBusy(true)
     setMsg(null)
     setStatus("Starting…")
@@ -131,25 +132,23 @@ export default function Scraper() {
     setSpanDays(null)
 
     let stopPoll = false
-      ; (async function poll() {
-        while (!stopPoll) {
-          try {
-            const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, { cache: "no-store" })
-            if (r.ok) {
-              const p = await r.json()
-              const total = p.total || limit || 1
-              const fetched = p.fetched || 0
-              const frac = Math.max(0, Math.min(1, total ? fetched / total : 0))
-              setProgress(frac)
-              setStatus(`${p.phase || "Working…"} ${fetched}/${total}`)
-              if (p.done && frac < 1) {
-                setProgress(1)
-              }
-            }
-          } catch { }
-          await new Promise((r) => setTimeout(r, 400))
-        }
-      })()
+    ;(async function poll() {
+      while (!stopPoll) {
+        try {
+          const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, { cache: "no-store" })
+          if (r.ok) {
+            const p = await r.json()
+            const total = p.total || limit || 1
+            const fetched = p.fetched || 0
+            const frac = Math.max(0, Math.min(1, total ? fetched / total : 0))
+            setProgress(frac)
+            setStatus(`${p.phase || "Working…"} ${fetched}/${total}`)
+            if (p.done && frac < 1) setProgress(1)
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 400))
+      }
+    })()
 
     try {
       const res = await fetch("/api/scrape", {
@@ -175,7 +174,7 @@ export default function Scraper() {
         try {
           const j = await res.json()
           reason = j?.error || reason
-        } catch { }
+        } catch {}
         throw new Error(reason || `HTTP ${res.status}`)
       }
 
@@ -265,7 +264,15 @@ export default function Scraper() {
           />
         </div>
 
-        <KPI rows={preview} dateRange={dateRange} limit={limit} inclPER={inclPER} />
+        <KPI
+          rows={preview}
+          rows2={preview2 ?? undefined}
+          dateRange={dateRange}
+          limit={runLimit}
+          inclPER={inclPER}
+          username={runUsername}
+          username2={runUsername2}
+        />
 
         <ExcelSheetSection
           hasTop10={hasRows}

@@ -23,16 +23,26 @@ const KeyInsights: React.FC<KeyInsightsProps> = ({ insights, isLoading }) => {
     return <p className="text-sm text-muted-foreground">No insights yet.</p>;
   }
 
+  const [first, ...rest] = insights;
+
   return (
-    <ul className="space-y-3 list-disc list-inside text-foreground/90 pb-2">
-      {insights.map((insight, idx) => (
-        <li
-          key={idx}
-          className="pl-2"
-          dangerouslySetInnerHTML={{ __html: insight }}
-        />
-      ))}
-    </ul>
+    <div className="text-foreground/90 pb-2 space-y-3">
+      <div
+        className="pl-2"
+        dangerouslySetInnerHTML={{ __html: first }}
+      />
+      {rest.length > 0 && (
+        <ul className="space-y-3 list-disc list-inside">
+          {rest.map((insight, idx) => (
+            <li
+              key={idx}
+              className="pl-2"
+              dangerouslySetInnerHTML={{ __html: insight }}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 };
 
