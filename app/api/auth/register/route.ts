@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { query } from "@/lib/db"
 import { supabase } from "@/lib/supabase"
+import { ResultSetHeader } from "mysql2"
 
 export async function POST(request: Request) {
   try {
@@ -38,10 +39,10 @@ export async function POST(request: Request) {
     
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    const result = await query(
-      "INSERT INTO users (email, password, email_verified, supabase_user_id) VALUES (?, ?, ?, ?)",
+    const result = (await query(
+      "INSERT INTO users (email, password, email_verified, supabase_user_id, created_at) VALUES (?, ?, ?, ?, NOW())",
       [email, hashedPassword, false, supabaseUser.user?.id],
-    )
+    )) as unknown as ResultSetHeader
 
     return NextResponse.json(
       {
