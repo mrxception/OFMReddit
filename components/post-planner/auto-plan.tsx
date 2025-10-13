@@ -1,9 +1,28 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import type { SubredditAnalysisData } from "./file-upload"
 
 type Tier = "High" | "Medium" | "Low"
+
+type SubredditAnalysisData = {
+  subreddit: string
+  total_post_count: number
+  total_upvotes: number
+  total_comments: number
+  average_comments: number
+  avg_upvotes_all: number
+  last_post_date_utc: Date | null
+  days_since_last_post: number
+  members: number
+  mean_upvotes_all: number
+  median_upvotes_all: number
+  min_all: number
+  q1_all: number
+  q3_all: number
+  max_all: number
+  tier: Tier | null
+}
+
 type PlanSub = SubredditAnalysisData & { isTester?: boolean; dynamic_days_since: number; tier: Tier; strategicValue?: number }
 type Plan = { day: number; date: Date; subreddits: PlanSub[] }[]
 
