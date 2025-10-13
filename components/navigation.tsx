@@ -127,7 +127,7 @@ export default function Navigation() {
                 >
                  Post Planner
                 </Link>
-                {user.isAdmin && (
+                {user.isAdmin ? (
                   <Link
                     href="/admin"
                     className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -139,7 +139,7 @@ export default function Navigation() {
                     <Shield className="w-4 h-4" />
                     Admin
                   </Link>
-                )}
+                ) : null}
 
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -216,7 +216,18 @@ export default function Navigation() {
             >
               Caption Generator
             </Link>
-            {user.isAdmin && (
+            <Link
+              href="/post-planner"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${
+                pathname === "/post-planner"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              Post Planner
+            </Link>
+            {user.isAdmin ? (
               <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
@@ -229,7 +240,7 @@ export default function Navigation() {
                 <Shield className="w-4 h-4" />
                 Admin
               </Link>
-            )}
+            ) : null}
             <div className="px-4 py-2 text-sm text-muted-foreground border-t border-border mt-2 pt-4">{user.email}</div>
           </div>
         )}
