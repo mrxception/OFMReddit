@@ -2,16 +2,18 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { query } from "@/lib/db"
 import { supabase } from "@/lib/supabase"
-import type { ResultSetHeader } from "mysql2"
+import { ResultSetHeader } from "mysql2"
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
 
+    
     if (!email || !password) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
+    
     const existingUser = await query("SELECT id, email_verified FROM users WHERE email = ?", [email])
 
     if (existingUser.length > 0) {
@@ -34,6 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create account" }, { status: 500 })
     }
 
+    
     const hashedPassword = await bcrypt.hash(password, 10)
 
     const result = (await query(
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
       },
       { status: 201 },
     )
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("Registration error:", error)
     return NextResponse.json({ error: "Registration failed" }, { status: 500 })
   }
