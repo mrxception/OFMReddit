@@ -183,7 +183,7 @@ ${knowledgeBaseSection}
 
   <output_format priority="CRITICAL_OVERRIDE">
     <instruction>
-      ⚠️ CRITICAL REQUIREMENT ⚠️
+      CRITICAL REQUIREMENT
       This instruction OVERRIDES any other output format instructions in the base_instructions above.
       
       YOU MUST RETURN EXACTLY ${captionCount} CAPTION ELEMENTS.
@@ -288,7 +288,7 @@ ${knowledgeBaseSection}
 
     console.log("Sending request to Gemini API")
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: {
@@ -385,7 +385,7 @@ ${knowledgeBaseSection}
         })
       }
 
-      console.log(`✓ Successfully parsed exactly ${captionCount} captions from XML`)
+      console.log(`Successfully parsed exactly ${captionCount} captions from XML`)
     } catch (error) {
       console.error("Failed to parse XML response:", error)
       console.error("Response text:", text.substring(0, 500))
@@ -393,7 +393,7 @@ ${knowledgeBaseSection}
       throw new Error(`Failed to parse captions from AI response: ${errorMsg}`)
     }
 
-    console.log(`✓ Successfully generated ${captionCount} captions`)
+    console.log(`Successfully generated ${captionCount} captions`)
     return NextResponse.json({ captions })
   } catch (error: unknown) {
     console.error("Error generating captions:", error)
