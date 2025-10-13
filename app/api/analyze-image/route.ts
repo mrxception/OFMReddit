@@ -2,72 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
 import { query } from "@/lib/db"
 
-async function callGeminiWithRetry(apiKey: string, parts: any[], maxRetries = 3): Promise<any> {
-  const models = ["gemini-1.5-flash", "gemini-1.5-pro"] 
-
-  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
-    const model = models[modelIndex]
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        console.log(` Attempting Gemini API call with ${model} (attempt ${attempt + 1}/${maxRetries})`)
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              contents: [{ parts }],
-              generationConfig: {
-                temperature: 0.4,
-                maxOutputTokens: 2048,
-              },
-              safetySettings: [
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-              ],
-            }),
-          },
-        )
-
-        if (response.ok) {
-          console.log(` Success with ${model}`)
-          return await response.json()
-        }
-
-        
-        if (response.status === 503) {
-          const waitTime = Math.pow(2, attempt) * 1000 
-          console.log(` Model overloaded, waiting ${waitTime}ms before retry...`)
-          await new Promise((resolve) => setTimeout(resolve, waitTime))
-          continue
-        }
-
-        
-        const errorData = await response.json()
-        throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`)
-      } catch (error: any) {
-        
-        if (attempt === maxRetries - 1 && modelIndex === models.length - 1) {
-          throw error
-        }
-
-        
-        if (!error.message.includes("503")) {
-          break
-        }
-      }
-    }
-  }
-
-  throw new Error("All Gemini models are currently overloaded. Please try again in a few moments.")
-}
-
 export async function POST(request: NextRequest) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
@@ -111,14 +45,20 @@ export async function POST(request: NextRequest) {
 
     const storedPrompt = promptResult[0].prompt_text
 
-    const jsonFormatOverride = `
+    const fullPrompt = `<?xml version="1.0" encoding="UTF-8"?>
+<image_analysis_task>
+  <base_instructions>
+${storedPrompt}
+  </base_instructions>
 
-=== CRITICAL OUTPUT FORMAT OVERRIDE (HIGHEST PRIORITY) ===
+  <output_format_requirements>
+    <critical_instruction priority="highest">
+      You MUST return your response as a VALID JSON object with this EXACT structure.
+      Do NOT use XML, HTML, or any other format for the output.
+      The prompt instructions above are in XML format for clarity, but your OUTPUT must be JSON.
+    </critical_instruction>
 
-IGNORE any instructions in the above prompt about XML, HTML, or other output formats.
-
-You MUST return your response as a VALID JSON object with this EXACT structure:
-
+    <required_json_structure>
 {
   "contentType": "string (e.g., 'solo female', 'couple', 'group')",
   "setting": "string (e.g., 'bedroom', 'outdoor', 'bathroom')",
@@ -146,20 +86,21 @@ You MUST return your response as a VALID JSON object with this EXACT structure:
   "nsfwLevel": "string (mild/moderate/explicit)",
   "tags": ["array", "of", "relevant", "tags"]
 }
+    </required_json_structure>
 
-MANDATORY RULES:
-1. Return ONLY the JSON object, no markdown code blocks, no explanations
-2. Do NOT wrap in \`\`\`json or any other formatting
-3. All string values must be properly escaped
-4. Arrays must contain at least one item
-5. The response must be parseable by JSON.parse()
+    <mandatory_rules>
+      <rule>Return ONLY the JSON object, no markdown code blocks, no explanations</rule>
+      <rule>Do NOT wrap in \`\`\`json or any other formatting</rule>
+      <rule>All string values must be properly escaped</rule>
+      <rule>Arrays must contain at least one item</rule>
+      <rule>The response must be parseable by JSON.parse()</rule>
+    </mandatory_rules>
+  </output_format_requirements>
+</image_analysis_task>`
 
-Example of CORRECT format:
-{"contentType":"solo female","setting":"bedroom","physicalAttributes":{"bodyType":"athletic","hairColor":"blonde","hairStyle":"long wavy","ethnicity":"caucasian","age":"20s","height":"average","notableFeatures":["tan lines","pink nail polish"]},"clothing":{"outfit":"lingerie","color":"white","style":"lace","accessories":["none"]},"pose":"lying on bed","mood":"playful","lighting":"natural window light","cameraAngle":"above","visualElements":["white bedding","natural lighting"],"suggestedSubreddits":["gonewild","RealGirls"],"nsfwLevel":"explicit","tags":["bedroom","lingerie","tan lines"]}
-
-This format override takes precedence over ALL other instructions.`
-
-    const fullPrompt = storedPrompt + jsonFormatOverride
+    console.log("\n\n=== PROMPT SENT TO AI ===")
+    console.log(fullPrompt)
+    console.log("=== END PROMPT ===\n\n")
 
     const documentsResult = await query(
       `SELECT d.filename, d.cloudinary_url, d.file_type 
@@ -181,76 +122,125 @@ This format override takes precedence over ALL other instructions.`
     ]
 
     if (documentsResult && documentsResult.length > 0) {
-      for (const doc of documentsResult) {
-        const docResponse = await fetch(doc.cloudinary_url)
-        if (docResponse.ok) {
-          const docBuffer = await docResponse.arrayBuffer()
-          const base64Doc = Buffer.from(docBuffer).toString("base64")
+      console.log(`Found ${documentsResult.length} knowledge base document(s)`)
 
-          parts.push({
-            inline_data: {
-              mime_type: doc.file_type,
-              data: base64Doc,
-            },
+      for (const doc of documentsResult) {
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+          const docResponse = await fetch(doc.cloudinary_url, {
+            signal: controller.signal,
           })
+
+          clearTimeout(timeoutId)
+
+          if (docResponse.ok) {
+            const docBuffer = await docResponse.arrayBuffer()
+            const base64Doc = Buffer.from(docBuffer).toString("base64")
+
+            parts.push({
+              inline_data: {
+                mime_type: doc.file_type,
+                data: base64Doc,
+              },
+            })
+            console.log(`Successfully loaded document: ${doc.filename}`)
+          } else {
+            console.warn(`Failed to fetch document: ${doc.cloudinary_url}, status: ${docResponse.status}`)
+          }
+        } catch (docError: unknown) {
+          const errorMessage = docError instanceof Error ? docError.message : "Unknown error"
+          console.warn(`Error fetching document ${doc.filename}: ${errorMessage}`)
         }
       }
+    } else {
+      console.log("No knowledge base documents found")
     }
 
-    const data = await callGeminiWithRetry(apiKey, parts)
+    console.log("Sending request to Gemini API")
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 2048,
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+          ],
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("Gemini API request failed:", JSON.stringify(errorData))
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`)
+    }
+
+    console.log("Received response from Gemini API")
+    const data = await response.json()
+
+    console.log("\n\n=== RESPONSE RECEIVED FROM AI ===")
+    console.log(JSON.stringify(data, null, 2))
+    console.log("=== END RESPONSE ===\n\n")
 
     if (data.promptFeedback?.blockReason) {
+      console.error("Content blocked by Gemini API:", data.promptFeedback.blockReason)
       throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) {
+      console.error("No content returned from Gemini API")
       throw new Error("No content returned from Gemini API")
     }
 
     let analysis
     try {
-      
       analysis = JSON.parse(text)
-    } catch (error) {
-      
+      console.log("Successfully parsed JSON response")
+    } catch (error: unknown) {
       const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
       if (codeBlockMatch) {
         try {
           analysis = JSON.parse(codeBlockMatch[1])
-        } catch (e) {
-          throw new Error("AI returned JSON in code block but it's malformed. Please try again.")
+          console.log("Successfully parsed JSON from code block")
+        } catch (e: unknown) {
+          console.error("AI returned JSON in code block but it's malformed")
+          throw new Error("AI returned malformed JSON")
         }
       } else {
-        
         const jsonMatch = text.match(/\{[\s\S]*\}/)
         if (!jsonMatch) {
-          console.error(" AI response:", text.substring(0, 500))
-          throw new Error(
-            "AI did not return valid JSON format. The response may be in XML or another format. Please try again.",
-          )
+          console.error("AI response doesn't contain valid JSON:", text.substring(0, 500))
+          throw new Error("AI did not return valid JSON format")
         }
         try {
           analysis = JSON.parse(jsonMatch[0])
-        } catch (e) {
-          throw new Error("Found JSON-like content but failed to parse. Please try again.")
+          console.log("Successfully extracted and parsed JSON")
+        } catch (e: unknown) {
+          console.error("Found JSON-like content but failed to parse")
+          throw new Error("Failed to parse AI response")
         }
       }
     }
 
-    console.log(" Successfully parsed analysis")
+    console.log("Image analysis completed successfully")
     return NextResponse.json({ analysis })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error analyzing image:", error)
-
-    let errorMessage = error.message || "Failed to analyze image"
-
-    if (errorMessage.includes("503") || errorMessage.includes("overloaded")) {
-      errorMessage = "The AI service is currently overloaded. Please try again in a few moments."
-    } else if (errorMessage.includes("JSON") || errorMessage.includes("parse")) {
-      errorMessage = "Failed to process AI response. Please try again."
-    }
-
+    const errorMessage = error instanceof Error ? error.message : "Failed to analyze image"
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
