@@ -288,7 +288,7 @@ ${knowledgeBaseSection}
 
     console.log("Sending request to Gemini API")
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: {
@@ -297,7 +297,7 @@ ${knowledgeBaseSection}
         body: JSON.stringify({
           contents: [{ parts: promptParts }],
           generationConfig: {
-            temperature: 0.9,
+            temperature: 0.3,
             maxOutputTokens: 2048,
           },
           safetySettings: [
