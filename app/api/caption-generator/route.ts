@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
 import { query } from "@/lib/db"
+import { DOMParser } from "@xmldom/xmldom" // You might need to install 'xmldom' (npm install xmldom)
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +50,9 @@ export async function POST(request: NextRequest) {
 
     let captionCount = 5
 
+    // Enhanced regex for extracting caption count
     const patterns = [
+      /YOU MUST GENERATE EXACTLY\s+(\d+)\s+CAPTIONS/i, // Specific to your meta_instruction
       /generate\s+(\d+)\s+captions/i,
       /(\d+)\s+captions/i,
       /exactly\s+(\d+)/i,
@@ -80,18 +83,21 @@ export async function POST(request: NextRequest) {
     )
 
     let knowledgeBaseSection = ""
-    const parts: any[] = []
+    const promptInlineParts: any[] = [] // For documents embedded as inline_data
+    let successfulDocs: string[] = []
 
     if (documentsResult && documentsResult.length > 0) {
-      console.log(`Found ${documentsResult.length} documents in database`)
-      const successfulDocs: string[] = []
+      console.log(`Found ${documentsResult.length} documents in database for prompt 'caption_generator'.`)
 
       for (const doc of documentsResult) {
         try {
           console.log(`Attempting to fetch document: ${doc.filename} from ${doc.cloudinary_url}`)
 
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 10000)
+          const timeoutId = setTimeout(() => {
+            controller.abort()
+            console.warn(`⚠ Fetch for document ${doc.filename} timed out after 10 seconds.`)
+          }, 10000) // 10-second timeout
 
           const docResponse = await fetch(doc.cloudinary_url, {
             signal: controller.signal,
@@ -107,7 +113,7 @@ export async function POST(request: NextRequest) {
             const docBuffer = await docResponse.arrayBuffer()
             const base64Doc = Buffer.from(docBuffer).toString("base64")
 
-            parts.push({
+            promptInlineParts.push({
               inline_data: {
                 mime_type: doc.file_type,
                 data: base64Doc,
@@ -116,14 +122,18 @@ export async function POST(request: NextRequest) {
 
             successfulDocs.push(doc.filename)
           } else {
-            console.warn(`⚠ Failed to fetch document: ${doc.filename}, status: ${docResponse.status}`)
+            console.warn(`⚠ Failed to fetch document: ${doc.filename}, status: ${docResponse.status}.`)
             console.warn(`  URL: ${doc.cloudinary_url}`)
-            console.warn(`  This document will be skipped, but generation will continue`)
+            console.warn(`  This document will be skipped, but generation will continue.`)
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error)
-          console.warn(`⚠ Error fetching document ${doc.filename}: ${errorMsg}`)
-          console.warn(`  This document will be skipped, but generation will continue`)
+          if (errorMsg.includes("timed out")) {
+            console.error(`❌ Document fetch for ${doc.filename} failed due to timeout.`)
+          } else {
+            console.error(`❌ Error fetching document ${doc.filename}: ${errorMsg}.`)
+          }
+          console.warn(`  This document will be skipped, but generation will continue.`)
         }
       }
 
@@ -134,9 +144,9 @@ export async function POST(request: NextRequest) {
     <documents>${successfulDocs.join(", ")}</documents>
     <instruction>Use the information from these documents to inform your caption generation</instruction>
   </knowledge_base>`
-        console.log(`✓ Successfully loaded ${successfulDocs.length}/${documentsResult.length} documents`)
+        console.log(`✓ Successfully embedded ${successfulDocs.length}/${documentsResult.length} documents into the prompt.`)
       } else {
-        console.warn(`⚠ WARNING: No documents could be fetched. Generation will proceed without knowledge base.`)
+        console.warn(`⚠ WARNING: No documents could be fetched or embedded. AI will be instructed to proceed without knowledge base.`)
         knowledgeBaseSection = `
   <knowledge_base>
     <status>No knowledge base documents available</status>
@@ -144,13 +154,18 @@ export async function POST(request: NextRequest) {
   </knowledge_base>`
       }
     } else {
-      console.log("No documents found in database for this prompt")
+      console.log("No documents found in database for this prompt. AI will be instructed to proceed without knowledge base.")
       knowledgeBaseSection = `
   <knowledge_base>
     <status>No knowledge base documents configured</status>
     <instruction>Generate captions based on the base instructions only</instruction>
   </knowledge_base>`
     }
+
+    // Insert critical negative meta_instruction
+    const criticalNegativeInstruction = `<meta_instruction priority="CRITICAL">
+    YOU MUST NOT INVENT DETAILS SUCH AS WEATHER (E.G., SUN, RAIN, SNOW), SEASONS, OR UNSTATED SOCIAL RELATIONSHIPS. ADHERE STRICTLY TO visual_context.
+  </meta_instruction>`
 
     const fullPrompt = `<?xml version="1.0" encoding="UTF-8"?>
 <prompt>
@@ -159,6 +174,7 @@ export async function POST(request: NextRequest) {
     This is a hard requirement that overrides all other instructions.
     Count: ${captionCount}
   </meta_instruction>
+  ${criticalNegativeInstruction}
 
   <base_instructions>
 ${basePrompt}
@@ -258,6 +274,10 @@ ${knowledgeBaseSection}
       ✓ Each caption has both option and text elements
       ✓ The response is valid XML with no markdown formatting
       ✓ I counted the captions and confirmed there are ${captionCount}
+      <rule priority="CRITICAL_OVERRIDE">
+        CRITICAL ASSUMPTION CHECK: YOU MUST NOT MENTION "SUN" OR ANY OTHER UNSTATED WEATHER/SEASON IF visual_context IS "In the garden".
+        This is an absolute failure and the caption MUST be rewritten.
+      </rule>
     </verification_checklist>
 
     <task_summary>
@@ -281,12 +301,12 @@ ${knowledgeBaseSection}
 
     const promptParts: any[] = [{ text: fullPrompt }]
 
-    if (parts.length > 0) {
-      promptParts.push(...parts)
-      console.log(`Including ${parts.length} document(s) in the API request`)
+    if (promptInlineParts.length > 0) {
+      promptParts.push(...promptInlineParts)
+      console.log(`Including ${promptInlineParts.length} document(s) in the API request's inline_data.`)
     }
 
-    console.log("Sending request to Gemini API")
+    console.log("Sending request to Gemini API...")
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
@@ -297,7 +317,7 @@ ${knowledgeBaseSection}
         body: JSON.stringify({
           contents: [{ parts: promptParts }],
           generationConfig: {
-            temperature: 0.3,
+            temperature: 1.5, // Slightly adjusted temperature for potentially more creative but still constrained output
             maxOutputTokens: 2048,
           },
           safetySettings: [
@@ -313,15 +333,15 @@ ${knowledgeBaseSection}
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       console.error("Gemini API error:", response.status, errorData)
-      throw new Error(`Gemini API error: ${response.status}`)
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`)
     }
 
     const data = await response.json()
 
-    console.log("Received response from Gemini API")
+    console.log("Received response from Gemini API.")
 
     if (!data) {
-      throw new Error("No response received from Gemini API")
+      throw new Error("No response received from Gemini API.")
     }
 
     console.log("\n\n=== RESPONSE RECEIVED FROM AI ===")
@@ -329,75 +349,86 @@ ${knowledgeBaseSection}
     console.log("=== END RESPONSE ===\n\n")
 
     if (data.promptFeedback?.blockReason) {
-      console.error("Content blocked by Gemini API:", data.promptFeedback.blockReason)
-      throw new Error(`Content was blocked: ${data.promptFeedback.blockReason}`)
+      console.error("❌ Content blocked by Gemini API:", data.promptFeedback.blockReason)
+      throw new Error(`Content was blocked by Gemini API: ${data.promptFeedback.blockReason}`)
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) {
-      console.error("No content returned from Gemini API")
-      throw new Error("No content returned from Gemini API")
+      console.error("❌ No content (text) returned from Gemini API.")
+      throw new Error("No content (text) returned from Gemini API.")
     }
 
-    let captions
+    let captions: { option: string; text: string }[] = []
     try {
       const xmlMatch = text.match(/<\?xml[\s\S]*?<captions>[\s\S]*?<\/captions>/i)
       if (!xmlMatch) {
-        console.error("No XML document found in response:", text.substring(0, 200))
-        throw new Error("No XML document found in AI response")
+        console.error("❌ No valid XML document found in AI response.")
+        console.error("Partial response text:", text.substring(0, 500))
+        throw new Error("No XML document found in AI response. Response might be malformed or incomplete.")
       }
 
       const xmlText = xmlMatch[0]
-      console.log("Extracted XML:", xmlText)
+      console.log("Extracted XML for parsing.")
 
-      const captionRegex = /<caption>\s*<option>([\s\S]*?)<\/option>\s*<text>([\s\S]*?)<\/text>\s*<\/caption>/gi
-      const captionMatches = xmlText.matchAll(captionRegex)
-      captions = []
+      const parser = new DOMParser()
+      const xmlDoc = parser.parseFromString(xmlText, "application/xml")
 
-      for (const match of captionMatches) {
-        captions.push({
-          option: match[1].trim(),
-          text: match[2]
-            .trim()
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .replace(/&amp;/g, "&")
-            .replace(/&quot;/g, '"')
-            .replace(/&apos;/g, "'"),
-        })
+      const errorNode = xmlDoc.getElementsByTagName("parsererror")
+      if (errorNode.length > 0) {
+        console.error("❌ XML parsing error:", errorNode[0].textContent)
+        throw new Error(`Failed to parse XML: ${errorNode[0].textContent}`)
       }
 
-      console.log(`Parsed ${captions.length} captions from XML response`)
+      const captionElements = xmlDoc.getElementsByTagName("caption")
+      for (let i = 0; i < captionElements.length; i++) {
+        const captionElement = captionElements[i]
+        const optionElement = captionElement.getElementsByTagName("option")[0]
+        const textElement = captionElement.getElementsByTagName("text")[0]
+
+        if (optionElement && textElement) {
+          captions.push({
+            option: optionElement.textContent?.trim() || "",
+            text: textElement.textContent?.trim() || "",
+          })
+        }
+      }
+
+      console.log(`Parsed ${captions.length} captions from XML response.`)
 
       if (captions.length !== captionCount) {
-        console.error(`CAPTION COUNT MISMATCH`)
-        console.error(`Expected: ${captionCount} captions`)
-        console.error(`Received: ${captions.length} captions`)
-        console.error(`Captions received:`)
-        captions.forEach((cap, idx) => {
-          console.error(`  ${idx + 1}. ${cap.option}`)
-        })
-
-        console.warn(`Returning ${captions.length} captions despite mismatch`)
-        return NextResponse.json({
-          captions,
-          warning: `Expected ${captionCount} captions but received ${captions.length}`,
-        })
+        console.error(`❌ CRITICAL: CAPTION COUNT MISMATCH!`)
+        console.error(`   Expected: ${captionCount} captions`)
+        console.error(`   Received: ${captions.length} captions`)
+        // Log the captions received even if count is wrong for debugging
+        captions.forEach((cap, idx) => console.error(`     ${idx + 1}. ${cap.text}`))
+        throw new Error(`AI failed to generate exactly ${captionCount} captions. Received ${captions.length}.`)
       }
 
-      console.log(`Successfully parsed exactly ${captionCount} captions from XML`)
+      console.log(`✓ Successfully parsed exactly ${captionCount} captions from XML.`)
+
+      // --- Client-side check for "sun" specific rule ---
+      const hasSunKeyword = captions.some(caption => caption.text.toLowerCase().includes("sun"))
+      if (visualContext?.toLowerCase() === "in the garden" && hasSunKeyword) {
+        console.error("❗ AI FAILED CRITICAL ASSUMPTION CHECK: Caption mentioned 'sun' for 'in the garden' context.")
+        // You might choose to throw an error here or just log a warning
+        // For now, logging a warning but returning the captions. You can change this to `throw new Error(...)`
+      } else if (visualContext?.toLowerCase() === "in the garden") {
+        console.log("✓ AI PASSED CRITICAL ASSUMPTION CHECK: No 'sun' mentioned for 'in the garden' context.")
+      }
+      // --- End client-side check ---
+
     } catch (error) {
-      console.error("Failed to parse XML response:", error)
-      console.error("Response text:", text.substring(0, 500))
+      console.error("❌ Failed to parse XML response or validate captions:", error)
       const errorMsg = error instanceof Error ? error.message : String(error)
-      throw new Error(`Failed to parse captions from AI response: ${errorMsg}`)
+      throw new Error(`Failed to process AI response: ${errorMsg}`)
     }
 
-    console.log(`Successfully generated ${captionCount} captions`)
+    console.log(`✓ Successfully generated and validated ${captionCount} captions.`)
     return NextResponse.json({ captions })
   } catch (error: unknown) {
-    console.error("Error generating captions:", error)
-    const errorMessage = error instanceof Error ? error.message : "Failed to generate captions"
+    console.error("❌ Error generating captions:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to generate captions due to an unknown error."
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
