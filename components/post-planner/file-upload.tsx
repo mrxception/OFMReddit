@@ -13,17 +13,13 @@ type PostRow = {
   post_date_utc: string | number | Date
 }
 
-export type Tier = "High" | "Medium" | "Low"
-export type AverageMetricKey = "mean_upvotes_all" | "mean_comments_all"
-
-export type SubredditAnalysisData = {
+type PostData = {
   subreddit: string
-  avg_upvotes_all: number
-  avg_comments_all: number
-  members: number
-  total_post_count: number
-  days_since_last_post: number
-  tier?: Tier
+  title?: string
+  upvotes: number
+  comments: number
+  subscribers: number
+  post_date_utc: string | number | Date
 }
 
 const HEADER_MAPPING: Record<string, keyof PostRow> = {
@@ -36,50 +32,9 @@ const HEADER_MAPPING: Record<string, keyof PostRow> = {
 
 const normalizeHeader = (h: string) => h.toLowerCase().replace(/[\s_]+/g, " ").trim()
 
-const toDaysSinceUtc = (raw: unknown): number => {
-  if (raw == null) return 999
-
-  const daysDiffFromUTCDate = (d: Date) => {
-    const y = d.getUTCFullYear()
-    const m = d.getUTCMonth()
-    const day = d.getUTCDate()
-    const utcPost = Date.UTC(y, m, day, 0, 0, 0)
-    const now = new Date()
-    const utcNow = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0)
-    const diff = utcNow - utcPost
-    return diff >= 0 ? Math.floor(diff / 86400000) : 0
-  }
-
-  if (typeof raw === "number" && Number.isFinite(raw)) {
-    const ms = Math.round((raw - 25569) * 86400000)
-    return daysDiffFromUTCDate(new Date(ms))
-  }
-
-  if (raw instanceof Date && !isNaN(raw.getTime())) {
-    return daysDiffFromUTCDate(raw)
-  }
-
-  if (typeof raw === "string") {
-    const s = raw.trim()
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (m) {
-      const y = Number(m[1])
-      const mo = Number(m[2]) - 1
-      const d = Number(m[3])
-      const utcPost = Date.UTC(y, mo, d, 0, 0, 0)
-      const now = new Date()
-      const utcNow = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0)
-      const diff = utcNow - utcPost
-      return diff >= 0 ? Math.floor(diff / 86400000) : 0
-    }
-  }
-
-  return 999
-}
-
 export default function FileUpload() {
   const [errorMessage, setErrorMessage] = useState<string>("")
-  const [data, setData] = useState<SubredditAnalysisData[] | null>(null)
+  const [data, setData] = useState<PostData[] | null>(null)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -92,7 +47,7 @@ export default function FileUpload() {
     reader.onload = (e) => {
       try {
         const bytes = new Uint8Array(e.target?.result as ArrayBuffer)
-        const wb = XLSX.read(bytes, { type: "array", cellDates: true  })
+        const wb = XLSX.read(bytes, { type: "array", cellDates: true })
         const sheetName = wb.SheetNames[0]
         const ws = wb.Sheets[sheetName]
         const json: any[] = XLSX.utils.sheet_to_json(ws, { raw: true, defval: "" })
@@ -124,25 +79,15 @@ export default function FileUpload() {
           return o as PostRow
         })
 
-        const mapped: SubredditAnalysisData[] = parsed.map(r => ({
+        const posts: PostData[] = parsed.map(r => ({
           subreddit: String(r.subreddit ?? "").trim(),
-          avg_upvotes_all: Number(r.upvotes ?? 0),
-          avg_comments_all: Number(r.comments ?? 0),
-          members: Number(r.subscribers ?? 0),
-          total_post_count: 1,
-          days_since_last_post: toDaysSinceUtc(r.post_date_utc),
+          upvotes: Number(r.upvotes ?? 0),
+          comments: Number(r.comments ?? 0),
+          subscribers: Number(r.subscribers ?? 0),
+          post_date_utc: r.post_date_utc
         }))
 
-        const sorted = [...mapped].sort((a, b) => b.avg_upvotes_all - a.avg_upvotes_all)
-        const n = sorted.length
-        const hiCut = Math.floor(n * 0.3)
-        const mdCut = Math.floor(n * 0.7)
-        sorted.forEach((s, i) => { s.tier = i < hiCut ? "High" : i < mdCut ? "Medium" : "Low" })
-
-        const byName = new Map(sorted.map(s => [s.subreddit.toLowerCase(), s as SubredditAnalysisData]))
-        const deduped = mapped.map(m => byName.get(m.subreddit.toLowerCase())!).filter(Boolean)
-
-        setData(deduped)
+        setData(posts)
       } catch (err: any) {
         setErrorMessage(err?.message || "Failed to process file.")
         setData(null)
@@ -196,5 +141,5 @@ export default function FileUpload() {
   ), [getRootProps, getInputProps, isDragActive, errorMessage])
 
   if (!data) return uploader
-  return <PostingPlanner allSubredditData={data} />
+  return <PostingPlanner rawPosts={data} />
 }

@@ -118,7 +118,7 @@ export default function Form(props: FormProps) {
                             disabled={busy}
                             aria-label="Add another username"
                         >
-                            + Add another username
+                            + Compare with another username
                         </button>
                     </div>
                 )}
@@ -189,19 +189,19 @@ export default function Form(props: FormProps) {
                     <input
                         type="checkbox"
                         className={s.setinput}
-                        checked={inclComm}
-                        onChange={(e) => setInclComm(e.target.checked)}
+                        checked={inclPER}
+                        onChange={(e) => setInclPER(e.target.checked)}
                     />
-                    <span className="text-sm text-foreground">Total comments</span>
+                    <span className="text-sm text-foreground">Performance rating</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input
                         type="checkbox"
                         className={s.setinput}
-                        checked={inclPER}
-                        onChange={(e) => setInclPER(e.target.checked)}
+                        checked={inclComm}
+                        onChange={(e) => setInclComm(e.target.checked)}
                     />
-                    <span className="text-sm text-foreground">Performance rating</span>
+                    <span className="text-sm text-foreground">Total comments</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input

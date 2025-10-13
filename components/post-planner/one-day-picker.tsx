@@ -1,14 +1,32 @@
 "use client"
 
 import React, { useMemo, useState } from "react"
-import type { SubredditAnalysisData } from "./file-upload"
 
 type Tier = "High" | "Medium" | "Low"
 type AverageMetricKey = "mean_upvotes_all" | "median_upvotes_all"
 
+type SubredditAnalysisData = {
+  subreddit: string
+  total_post_count: number
+  total_upvotes: number
+  total_comments: number
+  average_comments: number
+  avg_upvotes_all: number
+  last_post_date_utc: Date | null
+  days_since_last_post: number
+  members: number
+  mean_upvotes_all: number
+  median_upvotes_all: number
+  min_all: number
+  q1_all: number
+  q3_all: number
+  max_all: number
+  tier: Tier | null
+}
+
 const METRICS: Record<AverageMetricKey, { label: string; pick: (r: SubredditAnalysisData) => number }> = {
-  mean_upvotes_all: { label: "Mean Upvotes", pick: r => Number((r as any).avg_upvotes_all ?? 0) },
-  median_upvotes_all: { label: "Median Upvotes", pick: r => Number((r as any).median_upvotes_all ?? (r as any).avg_upvotes_all ?? 0) },
+  mean_upvotes_all: { label: "Mean Upvotes", pick: r => Number(r.mean_upvotes_all ?? 0) },
+  median_upvotes_all: { label: "Median Upvotes", pick: r => Number(r.median_upvotes_all ?? r.mean_upvotes_all ?? 0) },
 }
 
 type TierLists = Record<Tier, SubredditAnalysisData[]>
@@ -42,7 +60,7 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
       const key = String(r.subreddit || "").trim().toLowerCase()
       if (!key) continue
       const prev = by.get(key)
-      if (!prev || Number((r as any).avg_upvotes_all ?? 0) > Number((prev as any).avg_upvotes_all ?? 0)) {
+      if (!prev || Number(r.avg_upvotes_all ?? 0) > Number(prev.avg_upvotes_all ?? 0)) {
         by.set(key, { ...r, subreddit: r.subreddit?.trim?.() ?? r.subreddit })
       }
     }
@@ -51,26 +69,26 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
 
   const junk = useMemo(() => {
     return cleaned.filter(s =>
-      Number((s as any).total_post_count ?? 0) > 5 &&
-      Number((s as any).avg_upvotes_all ?? 0) < 60 &&
-      Number((s as any).members ?? 0) < 100000
+      Number(s.total_post_count ?? 0) > 5 &&
+      Number(s.avg_upvotes_all ?? 0) < 60 &&
+      Number(s.members ?? 0) < 100000
     )
   }, [cleaned])
 
   const nonJunk = useMemo(() => {
-    const junkSet = new Set(junk.map(j => (j as any).subreddit))
-    return cleaned.filter(s => !junkSet.has((s as any).subreddit))
+    const junkSet = new Set(junk.map(j => j.subreddit))
+    return cleaned.filter(s => !junkSet.has(s.subreddit))
   }, [cleaned, junk])
 
   const computedTierOf = useMemo(() => {
-    const sorted = [...nonJunk].sort((a, b) => Number((b as any).avg_upvotes_all ?? 0) - Number((a as any).avg_upvotes_all ?? 0))
+    const sorted = [...nonJunk].sort((a, b) => Number(b.avg_upvotes_all ?? 0) - Number(a.avg_upvotes_all ?? 0))
     const n = sorted.length
     const hiCount = Math.floor(n * 0.3)
     const mdCount = Math.floor(n * 0.4)
     const map = new Map<string, Tier>()
     sorted.forEach((s, i) => {
       const t: Tier = i < hiCount ? "High" : i < hiCount + mdCount ? "Medium" : "Low"
-      map.set((s as any).subreddit, t)
+      map.set(s.subreddit, t)
     })
     return map
   }, [nonJunk])
@@ -80,17 +98,17 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
     const pick = METRICS[metricKey].pick
 
     const eligible = nonJunk
-      .filter(s => Number((s as any).days_since_last_post ?? 0) >= eligibility)
-      .map(s => ({ ...s, tier: computedTierOf.get((s as any).subreddit) as Tier }))
-      .sort((a: any, b: any) => {
+      .filter(s => Number(s.days_since_last_post ?? 0) >= eligibility)
+      .map(s => ({ ...s, tier: computedTierOf.get(s.subreddit) as Tier }))
+      .sort((a, b) => {
         const d = Number(b.days_since_last_post ?? 0) - Number(a.days_since_last_post ?? 0)
         if (d !== 0) return d
         return pick(b) - pick(a)
       })
 
     const tiers: TierLists = { High: [], Medium: [], Low: [] }
-    for (const s of eligible as any[]) {
-      if (s.tier) (tiers as any)[s.tier].push(s)
+    for (const s of eligible) {
+      if (s.tier) tiers[s.tier].push(s)
     }
 
     setGenerated({ tiers, junk })

@@ -105,17 +105,7 @@ export default function Navigation() {
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
-                  Scraper
-                </Link>
-                <Link
-                  href="/caption-generator"
-                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${
-                    pathname === "/caption-generator"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Caption Generator
+                  Performance Analysis
                 </Link>
                 <Link
                   href="/post-planner"
@@ -126,6 +116,16 @@ export default function Navigation() {
                   }`}
                 >
                  Post Planner
+                </Link>
+                <Link
+                  href="/caption-generator"
+                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${
+                    pathname === "/caption-generator"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  Caption Generator
                 </Link>
                 {user.isAdmin ? (
                   <Link
@@ -203,7 +203,18 @@ export default function Navigation() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
-              Scraper
+              Performance Analysis
+            </Link>
+            <Link
+              href="/post-planner"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${
+                pathname === "/post-planner"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              Post Planner
             </Link>
             <Link
               href="/caption-generator"
