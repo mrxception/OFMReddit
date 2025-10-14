@@ -105,28 +105,26 @@ async function generateInsights(data: Row[]): Promise<string[]> {
             : "";
 
     const prompt = `
-Analyze the following subreddit performance data. Provide 5 succinct, actionable insights for a social media manager.
-Focus on practical advice about where to post more or less to maximize engagement (upvotes).
-Do not mention subreddit size or subscribers.
+    Analyze the following subreddit performance data. Provide 3-5 succinct, actionable insights for a social media manager.
+    Focus on practical advice about where to post more or less to maximize engagement (upvotes).
+    Do not mention subreddit size or subscribers.
 
-Data Schema for each subreddit:
-- subreddit
-- decision_avg_upvotes (smart average of upvotes; primary indicator)
-- tier ('High' | 'Medium' | 'Low')
-- posts_30d
-- total_post_count
-- avg_upvotes_all
-- members
-- days_since_last_post
+    Data Schema for each subreddit:
+    - subreddit: Name of the subreddit.
+    - avg_upvotes_all: The average upvotes across all posts. This is the primary performance indicator.
+    - tier: 'High', 'Medium', or 'Low' performance tier based on 'avg_upvotes_all'.
+    - total_post_count: The total number of posts made to this subreddit in the dataset.
+    - members: The number of subscribers in the subreddit.
+    - days_since_last_post: Days since the last post in this subreddit.
 
-Rules:
-1) Recommend posting more in 'High' tier, especially if days_since_last_post is high.
-2) Identify consistently poor 'Low' tier.
-3) If a poor performer has very few posts (<5), suggest testing properly before dropping.
-4) Do not suggest dropping any subreddit with decision_avg_upvotes > 100 unless it's in bottom 20%.
-5) If "Junk Tier" exist (high total_post_count & low avg_upvotes_all), list them and suggest dropping.
-6) Keep insights brief and in bullet points.
-
+    Your analysis should follow these rules:
+    1. Identify top-performing subreddits ('High' tier) and recommend increasing posting frequency there, especially if 'days_since_last_post' is high.
+    2. Identify consistently poor-performing subreddits ('Low' tier).
+    3. If a poor performer has very few posts ('total_post_count' < 5), suggest testing it properly before abandoning it. Recommend posting higher quality content or including it in a posting round with high-performing subreddits to see if its performance can be improved.
+    4. Do not suggest dropping any subreddit that has a 'avg_upvotes_all' over 100, unless its performance is in the bottom 20% of the entire dataset.
+    5. If there are subreddits identified as "Junk Tier", add a final insight listing them by name. Explain that these are considered junk because they have been posted in multiple times (high 'total_post_count') but consistently yield poor results (low 'avg_upvotes_all'), and should be dropped from the posting strategy.
+    6. Keep insights brief and direct, in a bulleted list.
+    
 Data Sample (Top 25 by performance):
 ${dataSample}
 

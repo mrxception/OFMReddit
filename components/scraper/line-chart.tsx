@@ -17,12 +17,25 @@ const TEAL = "rgb(20,184,166)"
 function fmtDate(d: string) {
   if (!d) return d
   if (d.includes("-")) {
-    const [y, m, day] = d.split("-")
-    return `${day}/${m}/${y}`
+    const parts = d.split("-").map((x) => x.trim())
+    if (parts.length === 3) {
+      const y = Number(parts[0])
+      const m = Number(parts[1])
+      const day = Number(parts[2])
+      if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(day)) return `${day}/${m}/${y}`
+    }
   }
   if (d.includes("/")) {
-    const [y, m, day] = d.split("/")
-    return `${day}/${m}/${y}`
+    const parts = d.split("/").map((x) => x.trim())
+    if (parts.length === 3) {
+      let a = Number(parts[0])
+      let b = Number(parts[1])
+      let c = Number(parts[2])
+      if (Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c)) {
+        if (c > 1900) return `${a}/${b}/${c}`
+        return `${Number(parts[2])}/${Number(parts[1])}/${Number(parts[0])}`
+      }
+    }
   }
   return d
 }
@@ -37,9 +50,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           .slice()
           .sort((a: any, b: any) => (b?.value ?? 0) - (a?.value ?? 0))
           .map((pld: any, i: number) => (
-            <li key={i} style={{ color: pld?.color ?? "inherit" }}>
-              {`${pld.name}: ${Number(pld.value ?? 0).toLocaleString()}`}
-            </li>
+            <li key={i} style={{ color: pld?.color ?? "inherit" }}>{`${pld.name}: ${Number(pld.value ?? 0).toLocaleString()}`}</li>
           ))}
       </ul>
     </div>
@@ -61,18 +72,12 @@ export default function PerformanceLineChart({ data, seriesKeys, metricLabel, do
       <RLineChart data={data} margin={{ top: 6, right: 24, left: 40, bottom: 6 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
         <XAxis dataKey="date" tick={{ fill: tickColor }} stroke={tickColor} tickFormatter={fmtDate} />
-        <YAxis
-          tick={{ fill: tickColor }}
-          stroke={tickColor}
-          tickFormatter={(tick) => Number(tick).toLocaleString()}
-          domain={domain}
-          allowDataOverflow
-        >
+        <YAxis tick={{ fill: tickColor }} stroke={tickColor} tickFormatter={(tick) => Number(tick).toLocaleString()} domain={domain} allowDataOverflow>
           <Label value={metricLabel} angle={-90} position="insideLeft" style={{ textAnchor: "middle", fill: tickColor }} />
         </YAxis>
         <Tooltip content={<CustomTooltip />} />
         <Legend iconSize={10} />
-        {seriesKeys.map((k, i) => (
+        {seriesKeys.map((k) => (
           <Line
             key={k}
             type="monotone"
