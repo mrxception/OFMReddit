@@ -19,30 +19,22 @@ const LoadingSpinner: React.FC = () => (
 const KeyInsights: React.FC<KeyInsightsProps> = ({ insights, isLoading }) => {
   if (isLoading) return <LoadingSpinner />;
 
-  if (!insights?.length) {
+  const rest = Array.isArray(insights) ? insights.slice(1) : [];
+
+  if (!rest.length) {
     return <p className="text-sm text-muted-foreground">No insights yet.</p>;
   }
 
-  const [first, ...rest] = insights;
-
   return (
-    <div className="text-foreground/90 pb-2 space-y-3">
-      <div
-        className="pl-2"
-        dangerouslySetInnerHTML={{ __html: first }}
-      />
-      {rest.length > 0 && (
-        <ul className="space-y-3 list-disc list-inside">
-          {rest.map((insight, idx) => (
-            <li
-              key={idx}
-              className="pl-2"
-              dangerouslySetInnerHTML={{ __html: insight }}
-            />
-          ))}
-        </ul>
-      )}
-    </div>
+    <ul className="space-y-3 list-disc list-inside text-foreground/90 pb-2">
+      {rest.map((insight, idx) => (
+        <li
+          key={idx}
+          className="pl-2"
+          dangerouslySetInnerHTML={{ __html: insight }}
+        />
+      ))}
+    </ul>
   );
 };
 
