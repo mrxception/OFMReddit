@@ -128,8 +128,8 @@ function yMax(data: Array<{ date: string; v: number | null }>): number {
 export default function LineChartSection({ username, username2, timeSeries, timeSeries2 }: Props) {
   const [isOpen, setIsOpen] = React.useState(true)
   const [metric, setMetric] = React.useState<Metric>("avg_upvotes")
-  const [autoMax, setAutoMax] = React.useState(true)
-  const [manualMax, setManualMax] = React.useState<number>(0)
+  //const [autoMax, setAutoMax] = React.useState(true)
+  //const [manualMax, setManualMax] = React.useState<number>(0)
   const [granularity, setGranularity] = React.useState<Granularity>("day")
 
   if (!timeSeries) return null
@@ -166,7 +166,8 @@ export default function LineChartSection({ username, username2, timeSeries, time
   const maxA = yMax(series1)
   const maxB = series2 ? yMax(series2) : 0
   const computedMax = Math.max(maxA, maxB)
-  const finalMax = autoMax ? Math.ceil(computedMax || 0) : Math.max(0, Number(manualMax) || 0)
+  //const finalMax = autoMax ? Math.ceil(computedMax || 0) : Math.max(0, Number(manualMax) || 0)
+  const finalMax = Math.ceil(computedMax || 0)
   const domain: [number, number] = [0, Math.max(10, finalMax)]
   const metricLabel = metric === "avg_upvotes" ? "Average Upvotes" : metric === "avg_comments" ? "Average Comments" : "Total Upvotes"
 
@@ -211,6 +212,7 @@ export default function LineChartSection({ username, username2, timeSeries, time
                 </div>
               </div>
 
+              {/*
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
                   <input type="checkbox" className="accent-current" checked={autoMax} onChange={(e) => setAutoMax(e.target.checked)} />
@@ -229,7 +231,7 @@ export default function LineChartSection({ username, username2, timeSeries, time
                   </div>
                 )}
               </div>
-              {/*
+              
               <div className="ml-auto flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--sidebar-primary)" }} />
