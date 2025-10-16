@@ -55,6 +55,28 @@
   cursor: not-allowed;
 }
 
+.btn2 {
+  padding: 0.625rem 1.5rem;
+  background: color-mix(in srgb, var(--color-primary) 80%, black);
+  color: var(--color-primary-foreground);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.btn2:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn2:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .rowchoice {
   display: flex;
   flex-wrap: wrap;
