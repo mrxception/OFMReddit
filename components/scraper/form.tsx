@@ -1,5 +1,7 @@
 "use client"
 import React from "react"
+import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/components/ui/select2'
 
 interface FormProps {
     onSubmit: (e: React.FormEvent) => void
@@ -28,6 +30,15 @@ interface FormProps {
     setInclMed: (v: boolean) => void
     s: { [key: string]: string }
 }
+
+const Tooltip: React.FC<{ text: React.ReactNode; children: React.ReactNode }> = ({ text, children }) => (
+  <div className="relative inline-flex items-center group">
+    {children}
+    <div className="pointer-events-none absolute bottom-full mb-2 w-72 bg-card text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 border border-border shadow-lg z-20">
+      {text}
+    </div>
+  </div>
+)
 
 export default function Form(props: FormProps) {
     const {
@@ -63,6 +74,8 @@ export default function Form(props: FormProps) {
         setUsername2("")
         setShowSecondUsername(false)
     }
+
+    const perDisabled = !inclSubs
 
     return (
         <form onSubmit={onSubmit}>
@@ -100,7 +113,7 @@ export default function Form(props: FormProps) {
                             />
                             <button
                                 type="button"
-                                className={`${s.btn} w-full lg:col-span-1`}
+                                className={`${s.btn2} w-full lg:col-span-1`}
                                 onClick={removeSecond}
                                 disabled={busy}
                                 aria-label="Remove second username"
@@ -113,7 +126,7 @@ export default function Form(props: FormProps) {
                     <div className="sm:col-span-1 lg:col-span-2 flex items-end">
                         <button
                             type="button"
-                            className={`${s.btn} w-full`}
+                            className={`${s.btn2} w-full`}
                             onClick={addSecond}
                             disabled={busy}
                             aria-label="Add another username"
@@ -129,18 +142,20 @@ export default function Form(props: FormProps) {
                     <label htmlFor="dateRange" className="block text-sm font-semibold text-foreground mb-2">
                         Date Range
                     </label>
-                    <select
-                        className={s.csvinput}
-                        id="dateRange"
-                        value={dateRange}
-                        onChange={(e) => setDateRange(e.target.value)}
-                    >
-                        <option value="all">All Time</option>
-                        <option value="7">Last 7 Days</option>
-                        <option value="30">Last 30 Days</option>
-                        <option value="60">Last 60 Days</option>
-                        <option value="90">Last 90 Days</option>
-                    </select>
+                    <Select value={dateRange} onValueChange={setDateRange}>
+                        <SelectTrigger id="dateRange" className={s.csvinput}>
+                            <SelectValue />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                            <SelectItem value="all">All Time</SelectItem>
+                            <SelectItem value="7">Last 7 Days</SelectItem>
+                            <SelectItem value="30">Last 30 Days</SelectItem>
+                            <SelectItem value="60">Last 60 Days</SelectItem>
+                            <SelectItem value="90">Last 90 Days</SelectItem>
+                        </SelectContent>
+                    </Select>
+
                 </div>
 
                 <div className="sm:col-span-1">
@@ -165,52 +180,80 @@ export default function Form(props: FormProps) {
                     </button>
                 </div>
             </div>
-
+            <b className="block text-sm font-semibold text-foreground mb-4">Metrics to Analyze:</b>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        className={s.setinput}
+                <label htmlFor="inclVote" className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                        id="inclVote"
                         checked={inclVote}
-                        onChange={(e) => setInclVote(e.target.checked)}
+                        onCheckedChange={(v) => setInclVote(Boolean(v))}
+                        className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
                     />
                     <span className="text-sm text-foreground">Total upvotes</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        className={s.setinput}
+
+                <label htmlFor="inclSubs" className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                        id="inclSubs"
                         checked={inclSubs}
-                        onChange={(e) => setInclSubs(e.target.checked)}
+                        onCheckedChange={(v) => {
+                            const b = Boolean(v)
+                            setInclSubs(b)
+                            if (!b) setInclPER(false)
+                        }}
+                        className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
                     />
                     <span className="text-sm text-foreground">Subreddit member count</span>
+                    <Tooltip
+                        text={
+                            <div className="space-y-1">
+                                <p className="font-medium">Subreddit Member Counts</p>
+                                <p>Include member counts during scraping to enrich your dataset.<span><b> This makes scraping longer!</b></span></p>
+                                <ul className="list-disc pl-4 space-y-0.5">
+                                    <li>Unlocks Performance Rating checkboxes.</li>
+                                    <li>Turns the scatter plot into a bubble chart sized by members.</li>
+                                </ul>
+                                <p className="text-muted-foreground/80">Disable to keep a standard scatter plot and skip member lookups.</p>
+                            </div>
+                        }
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 pt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </Tooltip>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        className={s.setinput}
-                        checked={inclPER}
-                        onChange={(e) => setInclPER(e.target.checked)}
+                <label htmlFor="inclMed" className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                        id="inclMed"
+                        checked={inclMed}
+                        onCheckedChange={(v) => setInclMed(Boolean(v))}
+                        className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
                     />
-                    <span className="text-sm text-foreground">Performance rating</span>
+                    <span className="text-sm text-foreground">Median average upvotes per post</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        className={s.setinput}
+                <label htmlFor="inclComm" className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                        id="inclComm"
                         checked={inclComm}
-                        onChange={(e) => setInclComm(e.target.checked)}
+                        onCheckedChange={(v) => setInclComm(Boolean(v))}
+                        className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
                     />
                     <span className="text-sm text-foreground">Total comments</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        className={s.setinput}
-                        checked={inclMed}
-                        onChange={(e) => setInclMed(e.target.checked)}
+                <label
+                    htmlFor="inclPER"
+                    className={`flex items-center gap-2 ${perDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                    aria-disabled={perDisabled}
+                >
+                    <Checkbox
+                        id="inclPER"
+                        checked={inclPER}
+                        disabled={perDisabled}
+                        onCheckedChange={(v) => {
+                            if (perDisabled) return
+                            setInclPER(Boolean(v))
+                        }}
+                        className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
                     />
-                    <span className="text-sm text-foreground">Median average upvotes per post</span>
+                    <span className="text-sm text-foreground">Performance rating</span>
                 </label>
             </div>
 

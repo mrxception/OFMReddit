@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import React from "react"
 import s from "@/styles/scraper.module.css"
 
@@ -12,6 +12,14 @@ import BoxPlotSection from "./box-plot-section"
 import LineChartSection from "./line-chart-section"
 import KeyInsightsSection from "./key-insights-section"
 import KPI from "./kpi-section"
+
+type RawPostRow = {
+  Subreddit: string
+  Upvotes: number
+  Comments: number
+  Subreddit_Subscribers?: number
+  LastDate: string | Date
+}
 
 export default function Scraper() {
   const [showSecondUsername, setShowSecondUsername] = useState(false)
@@ -30,30 +38,24 @@ export default function Scraper() {
   const [inclPER, setInclPER] = useState(false)
   const [inclMed, setInclMed] = useState(false)
 
+  const [runDefaults, setRunDefaults] = useState({ inclVote: false, inclComm: false, inclMed: false, inclSubs: false, inclPER: false })
+
   const [averageMetricKey, setAverageMetricKey] = React.useState<"avg" | "median">("avg")
 
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState("Idle")
   const [msg, setMsg] = useState<{ type: string; text: string } | null>(null)
-  const [files, setFiles] = useState<Array<{ id: string; filename: string }>>([])
   const [preview, setPreview] = useState<any[]>([])
   const [preview2, setPreview2] = useState<any[] | null>(null)
+  const [rawRows, setRawRows] = useState<any[] | null>(null)
+  const [rawRows2, setRawRows2] = useState<any[] | null>(null)
   const [spanDays, setSpanDays] = useState<number | null>(null)
 
   const sidRef = useRef(globalThis.crypto?.randomUUID?.() ? crypto.randomUUID() : String(Math.random()))
   const progRef = useRef<HTMLElement>(null)
-  const historyRef = useRef<HTMLDivElement>(null)
 
-  const [timeSeries, setTimeSeries] = useState<{
-    upvotes: Array<{ date: string;[k: string]: number | string | null }>
-    comments: Array<{ date: string;[k: string]: number | string | null }>
-    subreddits: string[]
-  } | null>(null)
-  const [timeSeries2, setTimeSeries2] = useState<{
-    upvotes: Array<{ date: string;[k: string]: number | string | null }>
-    comments: Array<{ date: string;[k: string]: number | string | null }>
-    subreddits: string[]
-  } | null>(null)
+  const [timeSeries, setTimeSeries] = useState<{ upvotes: Array<{ date: string;[k: string]: number | string | null }>; comments: Array<{ date: string;[k: string]: number | string | null }>; subreddits: string[] } | null>(null)
+  const [timeSeries2, setTimeSeries2] = useState<{ upvotes: Array<{ date: string;[k: string]: number | string | null }>; comments: Array<{ date: string;[k: string]: number | string | null }>; subreddits: string[] } | null>(null)
 
   function setProgress(frac: number) {
     if (!progRef.current) return
@@ -69,51 +71,50 @@ export default function Scraper() {
   }
 
   useEffect(() => {
-    if (historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight
-  }, [files.length])
-
-  useEffect(() => {
     const cleanup = () => {
-      fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}`, {
-        method: "DELETE",
-        keepalive: true,
-      }).catch(() => {})
+      fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}`, { method: "DELETE", keepalive: true }).catch(() => {})
     }
     window.addEventListener("beforeunload", cleanup)
     return () => cleanup()
   }, [])
 
-  async function handleDownload(id: string, filename: string) {
+  async function downloadExport(kind: "data" | "raw", target: "u1" | "u2", opts: { inclVote: boolean; inclComm: boolean; inclMed: boolean; inclSubs: boolean; inclPER: boolean }) {
     try {
+      const payload: any = {
+        kind,
+        username: target === "u2" ? runUsername2 : runUsername,
+        inclSubs: opts.inclSubs ? 1 : 0,
+        inclVote: opts.inclVote ? 1 : 0,
+        inclComm: opts.inclComm ? 1 : 0,
+        inclPER: opts.inclPER ? 1 : 0,
+        inclMed: opts.inclMed ? 1 : 0,
+      }
+      if (kind === "data") {
+        payload.rows = target === "u2" ? (preview2 || []) : preview
+      } else {
+        payload.rawRows = target === "u2" ? (rawRows2 || []) : (rawRows || [])
+      }
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error("Export failed")
+      const blob = await res.blob()
+      const cd = res.headers.get("content-disposition") || ""
+      const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i.exec(cd)
+      const fname = decodeURIComponent(m?.[1] || m?.[2] || `${payload.username}_${kind}.xlsx`)
+      const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = `/api/scrape?id=${encodeURIComponent(id)}`
-      a.download = filename
+      a.href = url
+      a.download = fname
       document.body.appendChild(a)
       a.click()
       a.remove()
+      URL.revokeObjectURL(url)
     } catch {
-      setMsg({ type: "err", text: "Failed to download file." })
+      setMsg({ type: "err", text: "Failed to export file." })
     }
-  }
-
-  async function handleDelete(id: string) {
-    try {
-      await fetch(`/api/scrape?id=${encodeURIComponent(id)}`, { method: "DELETE" })
-      setFiles((arr) => arr.filter((f) => f.id !== id))
-    } catch {
-      setMsg({ type: "err", text: "Failed to delete file." })
-    }
-  }
-
-  function fmtUTC(iso: string) {
-    if (!iso) return ""
-    const d = new Date(iso)
-    const dd = String(d.getUTCDate()).padStart(2, "0")
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0")
-    const yy = String(d.getUTCFullYear()).slice(-2)
-    const hh = String(d.getUTCHours()).padStart(2, "0")
-    const min = String(d.getUTCMinutes()).padStart(2, "0")
-    return `${dd}/${mm}/${yy} ${hh}:${min}`
   }
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -123,12 +124,15 @@ export default function Scraper() {
     setRunUsername(frozen1)
     setRunUsername2(frozen2)
     setRunLimit(limit)
+    setRunDefaults({ inclVote, inclComm, inclMed, inclSubs, inclPER: inclSubs ? inclPER : false })
     setBusy(true)
     setMsg(null)
     setStatus("Starting…")
     setProgress(0)
     setPreview([])
     setPreview2(null)
+    setRawRows(null)
+    setRawRows2(null)
     setSpanDays(null)
 
     let stopPoll = false
@@ -164,7 +168,6 @@ export default function Scraper() {
           inclComm: inclComm ? 1 : 0,
           inclPER: inclPER ? 1 : 0,
           inclMed: inclMed ? 1 : 0,
-          format: "xlsx",
           sid: sidRef.current,
         }),
       })
@@ -181,51 +184,23 @@ export default function Scraper() {
       const payload = await res.json()
       setPreview(Array.isArray(payload.preview) ? payload.preview : [])
       setPreview2(Array.isArray(payload.preview2) ? payload.preview2 : null)
+      setRawRows(Array.isArray(payload.rawRows) ? payload.rawRows : null)
+      setRawRows2(Array.isArray(payload.rawRows2) ? payload.rawRows2 : null)
       setTimeSeries(payload.timeSeries ?? null)
       setTimeSeries2(payload.timeSeries2 ?? null)
       setSpanDays(typeof payload.datasetSpanDays === "number" && isFinite(payload.datasetSpanDays) ? payload.datasetSpanDays : null)
 
-      const staged = Array.isArray(payload.files) ? payload.files : payload.id ? [payload] : []
-      setFiles((arr) => [...arr, ...staged])
-
       setProgress(1)
       setStatus("Ready.")
-      setMsg({
-        type: "ok",
-        text: staged.length === 0 ? "No files were staged." : `File${staged.length > 1 ? "s" : ""}: ${staged.map((f: { id: string; filename: string }) => f.filename).join(", ")}`,
-      })
     } catch (err: any) {
       setProgress(0)
       setStatus("Failed.")
-      setMsg({
-        type: "err",
-        text: `Failed: ${err.message.includes("User not found") ? "Reddit username not found." : err.message || "Unknown error"}`,
-      })
+      setMsg({ type: "err", text: `Failed: ${err.message.includes("User not found") ? "Reddit username not found." : err.message || "Unknown error"}` })
     } finally {
       stopPoll = true
       setBusy(false)
     }
   }
-
-  const cols = useMemo(() => {
-    const list: Array<{ key: string; label: string }> = [
-      { key: "Subreddit", label: "subreddit name" },
-      { key: "Total_Posts", label: "number of posts" },
-      { key: "Avg_Upvotes_Per_Post", label: "av. upvotes (mean)" },
-      { key: "Avg_Comments_Per_Post", label: "av. comments" },
-      { key: "Post_Frequency", label: "post frequency" },
-    ]
-    if (inclMed) list.splice(5, 0, { key: "Median_Upvotes", label: "median upvotes" })
-    if (inclVote) list.push({ key: "Total_Upvotes", label: "total upvotes" })
-    if (inclComm) list.push({ key: "Total_Comments", label: "total comments" })
-    if (inclSubs) list.push({ key: "Subreddit_Subscribers", label: "subreddit member count" })
-    if (inclPER) {
-      list.push({ key: "WPI_Score", label: "wpi score" })
-      list.push({ key: "WPI_Rating", label: "wpi rating" })
-    }
-    list.push({ key: "LastDateTimeUTC", label: "last post date" })
-    return list
-  }, [inclMed, inclVote, inclComm, inclSubs, inclPER])
 
   const hasRows = Array.isArray(preview) && preview.length > 0
 
@@ -264,59 +239,37 @@ export default function Scraper() {
           />
         </div>
 
-        <KPI
-          rows={preview}
-          rows2={preview2 ?? undefined}
-          dateRange={dateRange}
-          limit={runLimit}
-          inclPER={inclPER}
-          username={runUsername}
-          username2={runUsername2}
-        />
+        <KPI rows={preview} rows2={preview2 ?? undefined} dateRange={dateRange} limit={runLimit} inclPER={runDefaults.inclPER} username={runUsername} username2={runUsername2} />
 
         <ExcelSheetSection
           hasTop10={hasRows}
           username={runUsername}
           username2={runUsername2}
-          cols={cols}
           rows={preview}
           rows2={preview2 ?? undefined}
-          fmtUTC={fmtUTC}
-          files={files}
-          historyRef={historyRef}
-          handleDownload={handleDownload}
-          handleDelete={handleDelete}
-          msg={msg}
+          fmtUTC={(iso) => {
+            if (!iso) return ""
+            const d = new Date(iso)
+            const dd = String(d.getUTCDate()).padStart(2, "0")
+            const mm = String(d.getUTCMonth() + 1).padStart(2, "0")
+            const yy = String(d.getUTCFullYear()).slice(-2)
+            const hh = String(d.getUTCHours()).padStart(2, "0")
+            const min = String(d.getUTCMinutes()).padStart(2, "0")
+            return `${dd}/${mm}/${yy} ${hh}:${min}`
+          }}
           s={s}
+          defaults={runDefaults}
+          subsAvailable={runDefaults.inclSubs}
+          onExport={(kind, target, opts) => downloadExport(kind, target, opts)}
         />
 
         <ScatterPlotSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} />
 
-        <BarChartSection
-          rows={preview}
-          rows2={preview2 ?? undefined}
-          username={runUsername}
-          username2={runUsername2}
-          s={s}
-          averageMetricKey={averageMetricKey}
-          onMetricChange={setAverageMetricKey}
-        />
+        <BarChartSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} averageMetricKey={averageMetricKey} onMetricChange={setAverageMetricKey} />
 
-        <BoxPlotSection
-          rows={preview}
-          rows2={preview2 ?? undefined}
-          username={runUsername}
-          username2={runUsername2}
-          s={s}
-          averageMetricKey={averageMetricKey}
-        />
+        <BoxPlotSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} averageMetricKey={averageMetricKey} />
 
-        <LineChartSection
-          username={runUsername}
-          username2={runUsername2}
-          timeSeries={timeSeries ?? undefined}
-          timeSeries2={timeSeries2 ?? undefined}
-        />
+        <LineChartSection username={runUsername} username2={runUsername2} timeSeries={timeSeries ?? undefined} timeSeries2={timeSeries2 ?? undefined} />
 
         <KeyInsightsSection rows={preview} />
       </div>
