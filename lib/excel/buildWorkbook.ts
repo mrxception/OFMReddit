@@ -10,8 +10,8 @@ export interface SubredditRow {
   Total_Comments?: number
   Subreddit_Subscribers?: number
   Post_Frequency?: string
-  WPI_Score?: number          
-  WPI_Rating?: string          
+  WPI_Score?: number
+  WPI_Rating?: string
   LastDateTimeUTC: string
 }
 
@@ -21,7 +21,15 @@ export interface BuildWorkbookOptions {
   inclVote?: number | boolean
   inclComm?: number | boolean
   inclSubs?: number | boolean
-  inclPER?: number | boolean   
+  inclPER?: number | boolean
+}
+
+function fmtUTCExcel(iso: string) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
 }
 
 export async function buildWorkbook(
@@ -56,10 +64,17 @@ export async function buildWorkbook(
   worksheet.getRow(1).font = { bold: true }
   worksheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0E0E0" } }
 
-  rows.forEach((r) => worksheet.addRow(r))
+  rows.forEach((r) =>
+    worksheet.addRow({
+      ...r,
+      LastDateTimeUTC: fmtUTCExcel(r.LastDateTimeUTC),
+    })
+  )
 
   const keyToIndex: Record<string, number> = {}
-  worksheet.columns.forEach((c: any, i: number) => { if (c?.key) keyToIndex[c.key] = i + 1 })
+  worksheet.columns.forEach((c: any, i: number) => {
+    if (c?.key) keyToIndex[c.key] = i + 1
+  })
   const setColFmt = (key: string, fmt: string) => {
     const idx = keyToIndex[key]
     if (!idx) return
@@ -74,7 +89,6 @@ export async function buildWorkbook(
   setColFmt("Total_Comments", "#,##0")
   setColFmt("Subreddit_Subscribers", "#,##0")
   setColFmt("WPI_Score", "0")
-  setColFmt("LastDateTimeUTC", "dd/mm/yy hh:mm")
 
   const arrayBuffer = await workbook.xlsx.writeBuffer()
   const buffer = Buffer.from(arrayBuffer)
