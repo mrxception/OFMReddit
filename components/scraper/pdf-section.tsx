@@ -131,6 +131,8 @@ export default function PdfSection({
     window.print()
   }
 
+  if (!rows || rows.length === 0) return null
+  
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center -mt-10">
       <button
