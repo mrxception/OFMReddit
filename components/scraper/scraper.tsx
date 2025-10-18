@@ -272,7 +272,7 @@ export default function Scraper() {
 
         <BoxPlotSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} averageMetricKey={averageMetricKey} />
 
-        <LineChartSection username={runUsername} username2={runUsername2} timeSeries={timeSeries ?? undefined} timeSeries2={timeSeries2 ?? undefined} />
+        <LineChartSection username={runUsername} username2={runUsername2} rows={preview} rows2={preview2 ?? undefined} timeSeries={timeSeries ?? undefined} timeSeries2={timeSeries2 ?? undefined} />
 
         <KeyInsightsSection rows={preview} onInsights={setInsights}/>
 

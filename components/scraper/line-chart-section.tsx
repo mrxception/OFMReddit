@@ -15,6 +15,8 @@ type Granularity = "day" | "week" | "month"
 interface Props {
   username?: string
   username2?: string
+  rows: any[]
+  rows2?: any[]
   timeSeries?: TS
   timeSeries2?: TS
 }
@@ -125,7 +127,7 @@ function yMax(data: Array<{ date: string; v: number | null }>): number {
   return m || 0
 }
 
-export default function LineChartSection({ username, username2, timeSeries, timeSeries2 }: Props) {
+export default function LineChartSection({ username, username2, rows, rows2, timeSeries, timeSeries2 }: Props) {
   const [isOpen, setIsOpen] = React.useState(true)
   const [metric, setMetric] = React.useState<Metric>("avg_upvotes")
   //const [autoMax, setAutoMax] = React.useState(true)
@@ -171,6 +173,8 @@ export default function LineChartSection({ username, username2, timeSeries, time
   const domain: [number, number] = [0, Math.max(10, finalMax)]
   const metricLabel = metric === "avg_upvotes" ? "Average Upvotes" : metric === "avg_comments" ? "Average Comments" : "Total Upvotes"
 
+  if (!rows || rows.length === 0) return null
+  
   return (
     <div className="rounded-lg border border-border bg-card">
       <header
