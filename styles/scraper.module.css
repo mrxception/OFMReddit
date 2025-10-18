@@ -16,7 +16,7 @@
   background-position: top left;
   background-attachment: scroll;
 
-  opacity: 0.5;
+  opacity: 0.8;
 }
 
 .bgPattern > * {
@@ -39,7 +39,7 @@
 
   background-image: none;
 
-  opacity: 0.4; 
+  opacity: 0.6; 
 }
 
 
