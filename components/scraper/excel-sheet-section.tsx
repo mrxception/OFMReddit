@@ -455,9 +455,9 @@ export default function ExcelSheetSection({
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
                   Export Data to Excel
                 </button>
-                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable && inclSubs, inclPER: subsAvailable && inclPER })}>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable, inclPER: subsAvailable && inclPER })}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
-                  Export Raw Data to Excel
+                  Export Individual Post Data to Excel
                 </button>
               </>
             )}
@@ -467,17 +467,17 @@ export default function ExcelSheetSection({
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
                   Export Data to Excel (u1)
                 </button>
-                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable && inclSubs, inclPER: subsAvailable && inclPER })}>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable, inclPER: subsAvailable && inclPER })}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
-                  Export Raw Data to Excel (u1)
+                  Export Individual Post Data to Excel (u1)
                 </button>
                 <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("data", "u2", { inclVote, inclComm, inclMed, inclSubs: subsAvailable && inclSubs, inclPER: subsAvailable && inclPER })}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
                   Export Data to Excel (u2)
                 </button>
-                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u2", { inclVote, inclComm, inclMed, inclSubs: subsAvailable && inclSubs, inclPER: subsAvailable && inclPER })}>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u2", { inclVote, inclComm, inclMed, inclSubs: subsAvailable, inclPER: subsAvailable && inclPER })}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
-                  Export Raw Data to Excel (u2)
+                  Export Individual Post Data to Excel (u2)
                 </button>
               </>
             )}

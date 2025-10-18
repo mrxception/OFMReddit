@@ -295,9 +295,7 @@ async function processUser(
       await sleep(120)
     }
     subredditStats = subredditStats.map((r) => ({ ...r, Subreddit_Subscribers: subCounts?.get(r.Subreddit) ?? 0 }))
-  }
 
-  if (opts.inclPER) {
     const sum = (a: any[], f: (x: any) => number) => a.reduce((t, x) => t + (Number(f(x)) || 0), 0)
     const totalPostsAll = Math.max(1, sum(subredditStats, (r) => r.Total_Posts || 0))
     const useMedian = !!opts.inclMed

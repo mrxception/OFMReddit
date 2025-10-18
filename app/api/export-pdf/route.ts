@@ -529,7 +529,32 @@ function buildInsightsFallbackHTML(insights: string[] | null | undefined) {
   `
 }
 
-
+function collectActiveDates(base: Array<{ date: string; [k: string]: number | string | null }>, keys: string[]) {
+    const out: string[] = []
+    for (const r of base || []) {
+        for (const k of keys || []) {
+            const v = r[k]
+            if (typeof v === "number" && isFinite(v)) {
+                out.push(r.date)
+                break
+            }
+        }
+    }
+    return out
+}
+function computeActualDateRange(ts: any): string | null {
+    if (!ts || !Array.isArray(ts.subreddits)) return null
+    const datesU = collectActiveDates(Array.isArray(ts.upvotes) ? ts.upvotes : [], ts.subreddits)
+    const datesC = collectActiveDates(Array.isArray(ts.comments) ? ts.comments : [], ts.subreddits)
+    const all = Array.from(new Set([...datesU, ...datesC]))
+        .map(d => ({ d, t: toUtcDate(d)?.getTime() ?? NaN }))
+        .filter(x => Number.isFinite(x.t))
+        .sort((a, b) => a.t - b.t)
+    if (!all.length) return null
+    const first = all[0].d
+    const last = all[all.length - 1].d
+    return `${fmtDMY(first)}-${fmtDMY(last)}`
+}
 
 async function launchBrowser() {
     const isServerless = !!process.env.VERCEL || !!process.env.AWS_REGION
@@ -660,9 +685,10 @@ export async function POST(req: NextRequest) {
         })
     }
 
-    //const insightsBlock = sanitize(caps?.insightsHTML) || buildInsightsFallbackHTML(body?.insights)
     const insightsBlock = buildInsightsFallbackHTML(body?.insights)
 
+    const actualRange = computeActualDateRange(ts1)
+    const dateRangeText = actualRange || dateRange
     const now = new Date().toLocaleString("en-US", { hour12: false })
     const noteExclusion = removedList.length ? `Excluded: ${removedList.join(", ")}` : `No exclusions.`
 
@@ -676,7 +702,7 @@ export async function POST(req: NextRequest) {
         <div class="section">
           <h1 style="margin-bottom: 2px;">Subreddit Performance Analysis (SPA)</h1>
           <h1>${title}</h1>
-          <div class="muted small">Date Range: ${dateRange} • Generated: ${now}${username2 ? ` • Compare vs u/${username2}` : ""}</div>
+          <div class="muted small">Date Range: ${dateRangeText} • Generated: ${now}${username2 ? ` • Compare vs u/${username2}` : ""}</div>
         </div>
         <div class="section">
           <h2>Section 1: KPIs</h2>

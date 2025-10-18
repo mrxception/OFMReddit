@@ -208,7 +208,7 @@ export default function Scraper() {
   const hasRows = Array.isArray(preview) && preview.length > 0
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className={`min-h-screen bg-background p-4 md:p-6 ${s.bgPattern}`}>
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="rounded-lg border border-border bg-card p-4 md:p-6">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Subreddit Performance Analysis (SPA)</h1>
