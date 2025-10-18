@@ -1,3 +1,48 @@
+.bgPattern {
+  position: relative;
+  min-height: 100vh;
+}
+
+.bgPattern::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background-image: url("/pattern.png");
+  background-repeat: repeat;
+  background-size: 380px auto;
+  background-position: top left;
+  background-attachment: scroll;
+
+  opacity: 0.5;
+}
+
+.bgPattern > * {
+  position: relative;
+  z-index: 1;
+}
+
+:global(.dark) .bgPattern::before {
+  background: var(--muted);
+
+  -webkit-mask-image: url("/pattern.png");
+  -webkit-mask-repeat: repeat;
+  -webkit-mask-size: 380px auto;
+  -webkit-mask-position: top left;
+
+  mask-image: url("/pattern.png");
+  mask-repeat: repeat;
+  mask-size: 380px auto;
+  mask-position: top left;
+
+  background-image: none;
+
+  opacity: 0.4; 
+}
+
+
 .row {
   display: flex;
   gap: 1rem;
@@ -57,13 +102,15 @@
 
 .btn2 {
   padding: 0.625rem 1.5rem;
-  background: color-mix(in srgb, var(--color-primary) 80%, black);
-  color: var(--color-primary-foreground);
-  border: none;
+  background: color-mix(in srgb, var(--color-muted) 80%, black);
+  color: var(--color-muted-foreground);
+  border-color: var(--color-border);
+  border-width: 1px;
   border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
+  filter: brightness(1.4);
   transition: opacity 0.2s;
   white-space: nowrap;
 }

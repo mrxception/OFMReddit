@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import * as XLSX from "xlsx"
 import PostingPlanner from "@/components/post-planner/posting-planner"
+import s from "@/styles/scraper.module.css"
 
 type PostRow = {
   subreddit: string
@@ -107,35 +108,37 @@ export default function FileUpload() {
   })
 
   const uploader = useMemo(() => (
-    <div className="max-w-3xl mx-auto md:p-6">
-      <div className="rounded-lg border border-border bg-card p-6 mb-6">
-        <h1 className="text-xl font-semibold text-foreground mb-2">Upload Post Data</h1>
-        <p className="text-sm text-muted-foreground mb-4">Upload the exported XLSX to build your posting plan.</p>
-        <div
-          {...getRootProps()}
-          className={`mt-1 flex justify-center px-6 pt-8 pb-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors
+    <div className={`min-h-screen bg-background p-4 md:p-6 ${s.bgPattern}`}>
+      <div className="max-w-3xl mx-auto md:p-6">
+        <div className="rounded-lg border border-border bg-card p-6 mb-6">
+          <h1 className="text-xl font-semibold text-foreground mb-2">Upload Post Data</h1>
+          <p className="text-sm text-muted-foreground mb-4">Upload the exported XLSX to build your posting plan.</p>
+          <div
+            {...getRootProps()}
+            className={`mt-1 flex justify-center px-6 pt-8 pb-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors
           ${isDragActive ? "border-[color:var(--sidebar-primary)] bg-muted/50" : "border-border hover:border-[color:var(--sidebar-primary)]/70"}`}
-        >
-          <input {...getInputProps()} />
-          <div className="space-y-2 text-center">
-            <svg className="mx-auto h-12 w-12 text-muted-foreground/70" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <p className="text-sm text-muted-foreground">
-              {isDragActive ? "Drop the file here…" : "Drag & drop an .xlsx here, or click to select"}
-            </p>
-            <p className="text-xs text-muted-foreground/70">XLSX up to 10MB</p>
+          >
+            <input {...getInputProps()} />
+            <div className="space-y-2 text-center">
+              <svg className="mx-auto h-12 w-12 text-muted-foreground/70" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <p className="text-sm text-muted-foreground">
+                {isDragActive ? "Drop the file here…" : "Drag & drop an .xlsx here, or click to select"}
+              </p>
+              <p className="text-xs text-muted-foreground/70">XLSX up to 10MB</p>
+            </div>
           </div>
+          {errorMessage && <p className="mt-4 text-sm text-destructive">{errorMessage}</p>}
         </div>
-        {errorMessage && <p className="mt-4 text-sm text-destructive">{errorMessage}</p>}
-      </div>
 
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-lg md:text-xl font-semibold text-foreground mb-2">Welcome!</h2>
-        <p className="text-sm md:text-base text-muted-foreground">
-          To get started, upload an Excel (.xlsx) file containing your post data. The file must have the exact column headers:
-          &nbsp;'Subreddit', 'Upvotes', 'Comments', 'Subreddit Subscribers', and 'Last Post Date (UTC)'.
-        </p>
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-lg md:text-xl font-semibold text-foreground mb-2">Welcome!</h2>
+          <p className="text-sm md:text-base text-muted-foreground">
+            To get started, upload an Excel (.xlsx) file containing your post data. The file must have the exact column headers:
+            &nbsp;'Subreddit', 'Upvotes', 'Comments', 'Subreddit Subscribers', and 'Last Post Date (UTC)'.
+          </p>
+        </div>
       </div>
     </div>
   ), [getRootProps, getInputProps, isDragActive, errorMessage])

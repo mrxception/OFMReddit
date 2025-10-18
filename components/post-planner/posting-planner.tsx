@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react"
 import OneDayPicker from "@/components/post-planner/one-day-picker"
 import AutoPlan from "@/components/post-planner/auto-plan"
 import HowItWorksModal from "@/components/post-planner/how-it-works"
+import s from "@/styles/scraper.module.css"
 
 type AxisDomain = ["auto" | number, "auto" | number]
 type AverageMetricKey = "mean_upvotes_all" | "median_upvotes_all"
@@ -142,6 +143,7 @@ export default function PostingPlanner({ rawPosts }: PostingPlannerProps) {
   const analyzedSubredditData = useMemo(() => analyzeSubredditData(rawPosts || []), [rawPosts])
 
   return (
+    <div className={`min-h-screen bg-background ${s.bgPattern}`}>
     <div className="mx-auto max-w-7xl space-y-6 md:p-6">
       <div className="rounded-lg border border-border bg-card p-4 space-y-4">
         <div className="flex justify-end">
@@ -179,6 +181,7 @@ export default function PostingPlanner({ rawPosts }: PostingPlannerProps) {
       )}
 
       <HowItWorksModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </div>
     </div>
   )
 }
