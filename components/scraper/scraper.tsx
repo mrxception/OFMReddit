@@ -12,6 +12,7 @@ import BoxPlotSection from "./box-plot-section"
 import LineChartSection from "./line-chart-section"
 import KeyInsightsSection from "./key-insights-section"
 import KPI from "./kpi-section"
+import PdfSection from "./pdf-section"
 
 type RawPostRow = {
   Subreddit: string
@@ -57,6 +58,8 @@ export default function Scraper() {
   const [timeSeries, setTimeSeries] = useState<{ upvotes: Array<{ date: string;[k: string]: number | string | null }>; comments: Array<{ date: string;[k: string]: number | string | null }>; subreddits: string[] } | null>(null)
   const [timeSeries2, setTimeSeries2] = useState<{ upvotes: Array<{ date: string;[k: string]: number | string | null }>; comments: Array<{ date: string;[k: string]: number | string | null }>; subreddits: string[] } | null>(null)
 
+  const [insights, setInsights] = useState<string[]>([])
+
   function setProgress(frac: number) {
     if (!progRef.current) return
     const clamped = Math.max(0, Math.min(1, frac))
@@ -72,7 +75,7 @@ export default function Scraper() {
 
   useEffect(() => {
     const cleanup = () => {
-      fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}`, { method: "DELETE", keepalive: true }).catch(() => {})
+      fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}`, { method: "DELETE", keepalive: true }).catch(() => { })
     }
     window.addEventListener("beforeunload", cleanup)
     return () => cleanup()
@@ -136,23 +139,23 @@ export default function Scraper() {
     setSpanDays(null)
 
     let stopPoll = false
-    ;(async function poll() {
-      while (!stopPoll) {
-        try {
-          const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, { cache: "no-store" })
-          if (r.ok) {
-            const p = await r.json()
-            const total = p.total || limit || 1
-            const fetched = p.fetched || 0
-            const frac = Math.max(0, Math.min(1, total ? fetched / total : 0))
-            setProgress(frac)
-            setStatus(`${p.phase || "Working…"} ${fetched}/${total}`)
-            if (p.done && frac < 1) setProgress(1)
-          }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 400))
-      }
-    })()
+      ; (async function poll() {
+        while (!stopPoll) {
+          try {
+            const r = await fetch(`/api/scrape?sid=${encodeURIComponent(sidRef.current)}&progress=1`, { cache: "no-store" })
+            if (r.ok) {
+              const p = await r.json()
+              const total = p.total || limit || 1
+              const fetched = p.fetched || 0
+              const frac = Math.max(0, Math.min(1, total ? fetched / total : 0))
+              setProgress(frac)
+              setStatus(`${p.phase || "Working…"} ${fetched}/${total}`)
+              if (p.done && frac < 1) setProgress(1)
+            }
+          } catch { }
+          await new Promise((r) => setTimeout(r, 400))
+        }
+      })()
 
     try {
       const res = await fetch("/api/scrape", {
@@ -177,7 +180,7 @@ export default function Scraper() {
         try {
           const j = await res.json()
           reason = j?.error || reason
-        } catch {}
+        } catch { }
         throw new Error(reason || `HTTP ${res.status}`)
       }
 
@@ -271,7 +274,29 @@ export default function Scraper() {
 
         <LineChartSection username={runUsername} username2={runUsername2} timeSeries={timeSeries ?? undefined} timeSeries2={timeSeries2 ?? undefined} />
 
-        <KeyInsightsSection rows={preview} />
+        <KeyInsightsSection rows={preview} onInsights={setInsights}/>
+
+        <PdfSection
+          username={runUsername}
+          username2={runUsername2}
+          dateRange={dateRange}
+          rows={preview}
+          rows2={preview2 ?? []}
+          excelFlags={runDefaults}
+          timeSeries={timeSeries ?? undefined}
+          timeSeries2={timeSeries2 ?? undefined}
+          lineMetric="avg_upvotes"
+          lineGranularity="day"
+          insights={insights}
+          selectors={{
+            kpi: "#kpi-section",
+            table: "#excel-table",
+            scatter: "#scatter-mean-vs-posts",
+            bar: "#bar-top25-upvotes",
+            line: "#line-performance-over-time",
+            insights: "#key-insights-section",
+          }}
+        />
       </div>
     </div>
   )

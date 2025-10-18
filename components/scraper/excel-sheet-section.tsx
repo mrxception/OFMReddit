@@ -86,7 +86,7 @@ export default function ExcelSheetSection({
     if (inclComm) list.push({ key: "Total_Comments", label: "total comments" })
     if (subsAvailable && inclSubs) list.push({ key: "Subreddit_Subscribers", label: "subreddit member count" })
     if (subsAvailable && inclPER) { list.push({ key: "WPI_Score", label: "wpi score" }); list.push({ key: "WPI_Rating", label: "wpi rating" }) }
-    list.push({ key: "LastDateTimeUTC", label: "last post date" })
+    list.push({ key: "LastDateTimeUTC", label: "last post date UTC" })
     return list
   }, [inclMed, inclVote, inclComm, inclSubs, inclPER, subsAvailable])
 
