@@ -104,10 +104,14 @@ export default function ExcelSheetSection({
     return m
   }, [rows2])
 
-  const unionSubs: string[] = React.useMemo(() => {
+  const overlapSubs: string[] = React.useMemo(() => {
+    if (!compare) return []
     const a = new Set<string>((rows || []).map((r: any) => r?.Subreddit).filter(Boolean))
-    if (compare) for (const r of rows2 || []) if (r?.Subreddit) a.add(r.Subreddit)
-    return Array.from(a).sort((x, y) => x.localeCompare(y))
+    const b = new Set<string>((rows2 || []).map((r: any) => r?.Subreddit).filter(Boolean))
+    const inter: string[] = []
+    a.forEach(s => { if (b.has(s)) inter.push(s) })
+    inter.sort((x, y) => x.localeCompare(y))
+    return inter
   }, [rows, rows2, compare])
 
   const sortedRowsSingle = React.useMemo(() => {
@@ -206,9 +210,10 @@ export default function ExcelSheetSection({
   }, [compare, colMinPx])
 
   const sortedSubsComp = React.useMemo(() => {
-    if (!sortKeyComp) return unionSubs
+    const base = overlapSubs
+    if (!sortKeyComp) return base
     const [metric, who] = sortKeyComp.split("__")
-    const arr = unionSubs.slice()
+    const arr = base.slice()
     const getVal = (sub: string) => {
       const src = who === "u2" ? bySub2.get(sub) : bySub1.get(sub)
       const v = src ? src[metric] : null
@@ -232,7 +237,7 @@ export default function ExcelSheetSection({
       return sortDirComp === "asc" ? cmp : -cmp
     })
     return arr
-  }, [unionSubs, sortKeyComp, sortDirComp, bySub1, bySub2])
+  }, [overlapSubs, sortKeyComp, sortDirComp, bySub1, bySub2])
 
   const onHeaderClickComp = (compoundKey: string) => {
     const [metric] = compoundKey.split("__")
@@ -342,7 +347,7 @@ export default function ExcelSheetSection({
           )}
           {compare && (
             <div className="mb-2 flex items-center justify-between gap-3">
-              <p className={s.hint}>Displaying {unionSubs.length} subreddits (scroll to view all)</p>
+              <p className={s.hint}>Displaying {overlapSubs.length} overlapping subreddits {overlapSubs.length === 0 ? "(none)" : "(scroll to view all)"}</p>
             </div>
           )}
 
@@ -397,7 +402,11 @@ export default function ExcelSheetSection({
             </div>
           )}
 
-          {hasTop10 && compare && (
+          {hasTop10 && compare && overlapSubs.length === 0 && (
+            <div className="py-8 text-center text-sm text-muted-foreground">No Subreddits overlap</div>
+          )}
+
+          {hasTop10 && compare && overlapSubs.length > 0 && (
             <div className={s.tableContainer} ref={containerRef}>
               <div className={s.excel} style={{ gridTemplateColumns: (() => {
                 const num = "48px"
@@ -424,7 +433,7 @@ export default function ExcelSheetSection({
                     </div>
                   </React.Fragment>
                 ))}
-                {unionSubs.map((sub, rIndex) => {
+                {sortedSubsComp.map((sub, rIndex) => {
                   const r1 = bySub1.get(sub)
                   const r2 = bySub2.get(sub)
                   return (
