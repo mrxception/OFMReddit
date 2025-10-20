@@ -89,9 +89,9 @@ export default function ScatterPlotSection({
     const base: { value: AxisChoice; label: string }[] = [
       { value: "Total_Posts", label: "Number of Posts" },
       { value: "Average_Upvotes", label: "Average Upvotes" },
-      { value: "Avg_Comments_Per_Post", label: "Average Comments" },
+      { value: "Avg_Comments_Per_Post", label: "Average Root Comments" },
       { value: "Total_Upvotes", label: "Total Upvotes" },
-      { value: "Total_Comments", label: "Total Comments" },
+      { value: "Total_Comments", label: "Total Root Comments" },
     ]
     if (hasSubs) base.push({ value: "Subreddit_Subscribers", label: "Subscribers" })
     return base

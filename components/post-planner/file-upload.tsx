@@ -10,7 +10,7 @@ type PostRow = {
   subreddit: string
   upvotes: number
   comments: number
-  subscribers: number
+  subscribers?: number
   post_date_utc: string | number | Date
 }
 
@@ -19,19 +19,31 @@ type PostData = {
   title?: string
   upvotes: number
   comments: number
-  subscribers: number
+  subscribers?: number
   post_date_utc: string | number | Date
 }
+
+const normalizeHeader = (h: string) => h.toLowerCase().replace(/[\s_]+/g, " ").trim()
 
 const HEADER_MAPPING: Record<string, keyof PostRow> = {
   "subreddit": "subreddit",
   "upvotes": "upvotes",
   "comments": "comments",
   "last post date (utc)": "post_date_utc",
+  "post date (utc)": "post_date_utc",
+  "last post date": "post_date_utc",
+  "post date": "post_date_utc",
   "subreddit subscribers": "subscribers",
+  "subscribers": "subscribers",
+  "subscriber count": "subscribers",
+  "subscriber counts": "subscribers",
+  "member count": "subscribers",
+  "members": "subscribers",
+  "subreddit members": "subscribers",
+  "subreddit member count": "subscribers",
+  "subreddit subscriber count": "subscribers",
+  "subscriber member counts": "subscribers"
 }
-
-const normalizeHeader = (h: string) => h.toLowerCase().replace(/[\s_]+/g, " ").trim()
 
 export default function FileUpload() {
   const [errorMessage, setErrorMessage] = useState<string>("")
@@ -60,7 +72,8 @@ export default function FileUpload() {
           if (HEADER_MAPPING[norm]) mappedHeaders[raw] = HEADER_MAPPING[norm]
         })
 
-        const required: (keyof PostRow)[] = ["subreddit", "upvotes", "comments", "subscribers", "post_date_utc"]
+        // Required columns (subscribers is optional)
+        const required: (keyof PostRow)[] = ["subreddit", "upvotes", "comments", "post_date_utc"]
         const found = new Set(Object.values(mappedHeaders))
         const missing = required.filter(k => !found.has(k))
         if (missing.length) throw new Error(`Missing required columns: ${missing.join(", ")}`)
@@ -72,7 +85,7 @@ export default function FileUpload() {
             if (!k) continue
             const v = row[rawKey]
             if (k === "upvotes" || k === "comments" || k === "subscribers") {
-              o[k] = typeof v === "number" ? v : Number(v ?? 0)
+              o[k] = typeof v === "number" ? v : (v === "" || v == null ? undefined : Number(v))
             } else {
               o[k] = v
             }
@@ -84,7 +97,8 @@ export default function FileUpload() {
           subreddit: String(r.subreddit ?? "").trim(),
           upvotes: Number(r.upvotes ?? 0),
           comments: Number(r.comments ?? 0),
-          subscribers: Number(r.subscribers ?? 0),
+          // If subscribers is missing, leave undefined (or set to 0 if your planner needs it)
+          subscribers: typeof r.subscribers === "number" ? r.subscribers : 0,
           post_date_utc: r.post_date_utc
         }))
 
@@ -135,8 +149,8 @@ export default function FileUpload() {
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-lg md:text-xl font-semibold text-foreground mb-2">Welcome!</h2>
           <p className="text-sm md:text-base text-muted-foreground">
-            To get started, upload an Excel (.xlsx) file containing your post data. The file must have the exact column headers:
-            &nbsp;'Subreddit', 'Upvotes', 'Comments', 'Subreddit Subscribers', and 'Last Post Date (UTC)'.
+            Required headers: <strong>Subreddit</strong>, <strong>Upvotes</strong>, <strong>Comments</strong>, and <strong>Last Post Date (UTC)</strong>.
+            The <strong>Subreddit Subscribers</strong> column is <em>optional</em>.
           </p>
         </div>
       </div>

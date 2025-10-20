@@ -15,7 +15,7 @@ type PostData = {
   title?: string
   upvotes: number
   comments: number
-  subscribers: number
+  subscribers?: number | null
   post_date_utc: string | number | Date
 }
 
@@ -88,7 +88,7 @@ const analyzeSubredditData = (posts: PostData[]): SubredditAnalysisData[] => {
     const avg_upvotes_all = avg(postsWithDates)
     const allUpvotes = postsWithDates.map(p => p.upvotes)
     const quart = getQuartiles(allUpvotes)
-    const maxSubscribers = Math.max(...postsWithDates.map(p => p.subscribers))
+    const maxSubscribers = postsWithDates.reduce((m, p) => Math.max(m, p.subscribers ?? 0), 0)
     const totalUpvotes = postsWithDates.reduce((s, p) => s + p.upvotes, 0)
     const totalComments = postsWithDates.reduce((s, p) => s + p.comments, 0)
     const averageComments = postsWithDates.length > 0 ? totalComments / postsWithDates.length : 0

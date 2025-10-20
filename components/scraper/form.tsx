@@ -180,6 +180,38 @@ export default function Form(props: FormProps) {
                     </button>
                 </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-4">
+                <b className="block text-sm font-semibold text-foreground mb-1">Metric to Include:</b>
+                <label htmlFor="inclSubs" className="flex items-center gap-2 cursor-pointer lg:col-span-2">
+                    <Checkbox
+                        id="inclSubs"
+                        checked={inclSubs}
+                        onCheckedChange={(v) => {
+                            const b = Boolean(v)
+                            setInclSubs(b)
+                            if (!b) setInclPER(false)
+                        }}
+                        className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
+                    />
+                    <span className="text-sm text-foreground">Subreddit member count</span>
+                    <Tooltip
+                        text={
+                            <div className="space-y-1">
+                                <p className="font-medium">Subreddit Member Counts</p>
+                                <p>Include member counts during scraping to enrich your dataset.<span><b> This makes scraping longer!</b></span></p>
+                                <ul className="list-disc pl-4 space-y-0.5">
+                                    <li>Unlocks Performance Rating checkboxes.</li>
+                                    <li>Turns the scatter plot into a bubble chart sized by members.</li>
+                                </ul>
+                                <p className="text-muted-foreground/80">Disable to keep a standard scatter plot and skip member lookups.</p>
+                            </div>
+                        }
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 pt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </Tooltip>
+                </label>
+            </div>
+            {/*
             <b className="block text-sm font-semibold text-foreground mb-4">Metrics to Analyze:</b>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                 <label htmlFor="inclVote" className="flex items-center gap-2 cursor-pointer">
@@ -256,7 +288,7 @@ export default function Form(props: FormProps) {
                     <span className="text-sm text-foreground">Performance rating</span>
                 </label>
             </div>
-
+            */}
             <div className={s.bar} aria-hidden="true">
                 <i id="progress" ref={progRef} />
             </div>
