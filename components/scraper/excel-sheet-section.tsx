@@ -78,12 +78,12 @@ export default function ExcelSheetSection({
       { key: "Subreddit", label: "subreddit name" },
       { key: "Total_Posts", label: "number of posts" },
       { key: "Avg_Upvotes_Per_Post", label: "av. upvotes (mean)" },
-      { key: "Avg_Comments_Per_Post", label: "av. comments" },
+      { key: "Avg_Comments_Per_Post", label: "av. root comments" },
       { key: "Post_Frequency", label: "post frequency" },
     ]
     if (inclMed) list.splice(5, 0, { key: "Median_Upvotes", label: "median upvotes" })
     if (inclVote) list.push({ key: "Total_Upvotes", label: "total upvotes" })
-    if (inclComm) list.push({ key: "Total_Comments", label: "total comments" })
+    if (inclComm) list.push({ key: "Total_Comments", label: "total root comments" })
     if (subsAvailable && inclSubs) list.push({ key: "Subreddit_Subscribers", label: "subreddit member count" })
     if (subsAvailable && inclPER) { list.push({ key: "WPI_Score", label: "wpi score" }); list.push({ key: "WPI_Rating", label: "wpi rating" }) }
     list.push({ key: "LastDateTimeUTC", label: "last post date UTC" })

@@ -171,7 +171,7 @@ export default function LineChartSection({ username, username2, rows, rows2, tim
   //const finalMax = autoMax ? Math.ceil(computedMax || 0) : Math.max(0, Number(manualMax) || 0)
   const finalMax = Math.ceil(computedMax || 0)
   const domain: [number, number] = [0, Math.max(10, finalMax)]
-  const metricLabel = metric === "avg_upvotes" ? "Average Upvotes" : metric === "avg_comments" ? "Average Comments" : "Total Upvotes"
+  const metricLabel = metric === "avg_upvotes" ? "Average Upvotes" : metric === "avg_comments" ? "Average Root Comments" : "Total Upvotes"
 
   if (!rows || rows.length === 0) return null
   
@@ -202,7 +202,7 @@ export default function LineChartSection({ username, username2, rows, rows2, tim
                 <span className="text-sm font-medium text-muted-foreground">Metric:</span>
                 <div className="flex rounded-md bg-muted p-1">
                   <button onClick={() => setMetric("avg_upvotes")} className={`px-3 py-1 text-sm rounded ${metric === "avg_upvotes" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}>Average Upvotes</button>
-                  <button onClick={() => setMetric("avg_comments")} className={`px-3 py-1 text-sm rounded ${metric === "avg_comments" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}>Average Comments</button>
+                  <button onClick={() => setMetric("avg_comments")} className={`px-3 py-1 text-sm rounded ${metric === "avg_comments" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}>Average Root Comments</button>
                   <button onClick={() => setMetric("total_upvotes")} className={`px-3 py-1 text-sm rounded ${metric === "total_upvotes" ? "bg-card text-foreground font-semibold shadow" : "text-muted-foreground"}`}>Total Upvotes</button>
                 </div>
               </div>
