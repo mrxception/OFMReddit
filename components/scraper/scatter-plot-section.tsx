@@ -24,6 +24,14 @@ type AxisChoice =
   | "Total_Comments"
   | "Subreddit_Subscribers"
 
+type ScatterState = {
+  xAxisChoice: AxisChoice
+  yAxisChoice: AxisChoice
+  averageMetricKey: "avg" | "median"
+  xDomain: AxisDomain
+  yDomain: AxisDomain
+}
+
 type Point = {
   subreddit: string
   members: number
@@ -44,6 +52,7 @@ interface Props {
   s: { [k: string]: string }
   defaultX?: AxisChoice
   defaultY?: AxisChoice
+  onScatterState?: (s: ScatterState) => void
 }
 
 export default function ScatterPlotSection({
@@ -54,6 +63,7 @@ export default function ScatterPlotSection({
   s,
   defaultX = "Total_Posts",
   defaultY = "Average_Upvotes",
+  onScatterState,
 }: Props) {
   const [isOpen, setIsOpen] = React.useState(true)
 
@@ -63,6 +73,11 @@ export default function ScatterPlotSection({
 
   const [xDomain, setXDomain] = React.useState<AxisDomain>([0, "auto"])
   const [yDomain, setYDomain] = React.useState<AxisDomain>([0, "auto"])
+
+  React.useEffect(() => {
+    if (!onScatterState) return
+    onScatterState({ xAxisChoice, yAxisChoice, averageMetricKey, xDomain, yDomain })
+  }, [xAxisChoice, yAxisChoice, averageMetricKey, xDomain, yDomain, onScatterState])
 
   const mapRows = React.useCallback(
     (arr: any[]): Point[] =>

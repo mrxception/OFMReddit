@@ -10,6 +10,23 @@ type TS = {
   subreddits: string[]
 }
 
+type AxisDomain = [number, number] | ["auto", number] | [number, "auto"] | ["auto", "auto"]
+
+type AxisChoice =
+  | "Total_Posts"
+  | "Average_Upvotes"
+  | "Avg_Comments_Per_Post"
+  | "Total_Upvotes"
+  | "Total_Comments"
+  | "Subreddit_Subscribers"
+type ScatterState = {
+  xAxisChoice: AxisChoice
+  yAxisChoice: AxisChoice
+  averageMetricKey: "avg" | "median"
+  xDomain: AxisDomain
+  yDomain: AxisDomain
+}
+
 interface PdfSectionProps {
   username: string
   username2?: string
@@ -23,6 +40,7 @@ interface PdfSectionProps {
   lineMetric?: "avg_upvotes" | "avg_comments" | "total_upvotes"
   lineGranularity?: "day" | "week" | "month"
   insights?: string[]
+  scatter?: ScatterState
 }
 
 type Phase = "idle" | "capturing" | "sending" | "generating" | "downloading" | "done" | "error"
@@ -35,6 +53,7 @@ export default function PdfSection({
   rows2,
   excelFlags,
   insights,
+  scatter,
   selectors,
   timeSeries,
   timeSeries2,
@@ -81,6 +100,7 @@ export default function PdfSection({
         rows,
         rows2: rows2 || [],
         insights: insights || [],
+        scatter,
         timeSeries,
         timeSeries2,
         lineMetric,
