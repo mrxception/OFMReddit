@@ -60,6 +60,23 @@ export default function Scraper() {
 
   const [insights, setInsights] = useState<string[]>([])
 
+  type AxisDomain = [number, number] | ["auto", number] | [number, "auto"] | ["auto", "auto"]
+  type AxisChoice =
+    | "Total_Posts"
+    | "Average_Upvotes"
+    | "Avg_Comments_Per_Post"
+    | "Total_Upvotes"
+    | "Total_Comments"
+    | "Subreddit_Subscribers"
+  type ScatterState = {
+    xAxisChoice: AxisChoice
+    yAxisChoice: AxisChoice
+    averageMetricKey: "avg" | "median"
+    xDomain: AxisDomain
+    yDomain: AxisDomain
+  }
+  const [scatter, setScatter] = useState<ScatterState | undefined>(undefined)
+
   function setProgress(frac: number) {
     if (!progRef.current) return
     const clamped = Math.max(0, Math.min(1, frac))
@@ -266,7 +283,7 @@ export default function Scraper() {
           onExport={(kind, target, opts) => downloadExport(kind, target, opts)}
         />
 
-        <ScatterPlotSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} />
+        <ScatterPlotSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} onScatterState={setScatter}/>
 
         <BarChartSection rows={preview} rows2={preview2 ?? undefined} username={runUsername} username2={runUsername2} s={s} averageMetricKey={averageMetricKey} onMetricChange={setAverageMetricKey} />
 
@@ -274,7 +291,7 @@ export default function Scraper() {
 
         <LineChartSection username={runUsername} username2={runUsername2} rows={preview} rows2={preview2 ?? undefined} timeSeries={timeSeries ?? undefined} timeSeries2={timeSeries2 ?? undefined} />
 
-        <KeyInsightsSection rows={preview} onInsights={setInsights}/>
+        <KeyInsightsSection rows={preview} onInsights={setInsights} />
 
         <PdfSection
           username={runUsername}
@@ -288,6 +305,7 @@ export default function Scraper() {
           lineMetric="avg_upvotes"
           lineGranularity="day"
           insights={insights}
+          scatter={scatter}
           selectors={{
             kpi: "#kpi-section",
             table: "#excel-table",

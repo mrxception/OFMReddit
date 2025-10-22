@@ -172,6 +172,9 @@ export default function ExcelSheetSection({
           else if (c.key === "Total_Upvotes" || c.key === "Total_Comments" || c.key === "Subreddit_Subscribers" || c.key === "WPI_Score") {
             const n = Number(v)
             v = Number.isFinite(n) ? n.toLocaleString() : (v ?? "")
+          } else if (c.key === "Avg_Upvotes_Per_Post" || c.key === "Avg_Comments_Per_Post") {
+            const n = Number(v)
+            v = Number.isFinite(n) ? Math.round(n).toLocaleString() : (v ?? "")
           } else {
             v = v ?? ""
           }
@@ -265,6 +268,9 @@ export default function ExcelSheetSection({
     else if (metricKey === "Total_Upvotes" || metricKey === "Total_Comments" || metricKey === "Subreddit_Subscribers" || metricKey === "WPI_Score") {
       const n = Number(v)
       v = Number.isFinite(n) ? n.toLocaleString() : (v ?? "")
+    } else if (metricKey === "Avg_Upvotes_Per_Post" || metricKey === "Avg_Comments_Per_Post") {
+      const n = Number(v)
+      v = Number.isFinite(n) ? Math.round(n).toLocaleString() : (v ?? "")
     } else {
       v = v ?? ""
     }
@@ -391,6 +397,10 @@ export default function ExcelSheetSection({
                       if (c.key === "Total_Upvotes" || c.key === "Total_Comments" || c.key === "Subreddit_Subscribers" || c.key === "WPI_Score") {
                         const n = Number(val)
                         val = Number.isFinite(n) ? n.toLocaleString() : (val ?? "")
+                      }
+                      if (c.key === "Avg_Upvotes_Per_Post" || c.key === "Avg_Comments_Per_Post") {
+                        const n = Number(val)
+                        val = Number.isFinite(n) ? Math.round(n).toLocaleString() : (val ?? "")
                       }
                       return (
                         <div key={`${r}-${c.key}`} className={s.cell} role="cell" title={String(val ?? "")}>{val ?? ""}</div>
