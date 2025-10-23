@@ -292,6 +292,7 @@ function buildScatterFallbackSVG({
         `<circle cx="${sx(Number((d as any)[xKey]))}" cy="${sy(Number((d as any)[yKey]))}" r="${sr(d.Subreddit_Subscribers)}" fill="var(--c2, #14b8a6)" fill-opacity="0.7"><title>${d.sub}</title></circle>`
     )
     .join("")
+
   const legend = `
     <g>
       <circle cx="${W - 170}" cy="${PAD.t + 12}" r="6" fill="#3b82f6" fill-opacity="0.7"/>
@@ -303,6 +304,90 @@ function buildScatterFallbackSVG({
       }
     </g>
   `
+
+  const allPlottable = [
+    ...fa1.map(d => ({
+      sub: d.sub,
+      xv: Number((d as any)[xKey]) || 0,
+      yv: Number((d as any)[yKey]) || 0,
+      cx: sx(Number((d as any)[xKey]) || 0),
+      cy: sy(Number((d as any)[yKey]) || 0),
+      col: "#374151"
+    })),
+    ...fa2.map(d => ({
+      sub: d.sub,
+      xv: Number((d as any)[xKey]) || 0,
+      yv: Number((d as any)[yKey]) || 0,
+      cx: sx(Number((d as any)[xKey]) || 0),
+      cy: sy(Number((d as any)[yKey]) || 0),
+      col: "#374151"
+    })),
+  ]
+
+  function median(nums: number[]) {
+    if (!nums.length) return 0
+    const a = nums.slice().sort((a,b) => a-b)
+    const m = Math.floor(a.length/2)
+    return a.length % 2 ? a[m] : (a[m-1]+a[m])/2
+  }
+
+  const mx = median(allPlottable.map(p => p.xv))
+  const my = median(allPlottable.map(p => p.yv))
+
+  const scored = allPlottable.map(p => {
+    const dx = (p.xv - mx) / Math.max(1, capX)
+    const dy = (p.yv - my) / Math.max(1, capY)
+    const outlier = Math.hypot(dx, dy)
+    const sizeBoost = maxM > 0 ? Math.log1p((fa1.concat(fa2).find(r => r.sub === p.sub)?.Subreddit_Subscribers || 0)) / Math.log1p(maxM) : 0
+    const edgeBoost = Math.max(
+      p.xv / Math.max(1, capX),
+      p.yv / Math.max(1, capY)
+    )
+    return { ...p, score: outlier * 0.7 + sizeBoost * 0.2 + edgeBoost * 0.1 }
+  }).sort((a,b) => b.score - a.score)
+
+  const maxLabels = Math.min(18, Math.max(6, Math.floor(scored.length * 0.2)))
+  const placed: Array<{x1:number,y1:number,x2:number,y2:number}> = []
+  const labels: string[] = []
+
+  function fits(b: {x1:number,y1:number,x2:number,y2:number}) {
+    for (const bb of placed) {
+      if (!(b.x2 < bb.x1 || b.x1 > bb.x2 || b.y2 < bb.y1 || b.y1 > bb.y2)) return false
+    }
+    return b.x1 >= 0 && b.y1 >= 0 && b.x2 <= W && b.y2 <= H
+  }
+
+  const fontSize = 9
+  const charW = 5.6
+
+  let count = 0
+  for (let i = 0; i < scored.length && count < maxLabels; i++) {
+    const p = scored[i]
+    const text = p.sub
+    const textW = Math.min(160, Math.max(28, text.length * charW))
+    const dirLeft = p.cx > (PAD.l + innerW * 0.75)
+    const dx = dirLeft ? -6 : 6
+    const anchor = dirLeft ? "end" : "start"
+    const dy = -4
+    const tx = p.cx + dx
+    const ty = p.cy + dy
+    const x1 = anchor === "end" ? tx - textW : tx
+    const x2 = anchor === "end" ? tx : tx + textW
+    const y1 = ty - fontSize - 2
+    const y2 = ty + 2
+
+    const bbox = { x1, y1, x2, y2 }
+    if (!fits(bbox)) continue
+
+    placed.push(bbox)
+    labels.push(
+      `<g>
+         <text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${fontSize}" fill="${p.col}" font-weight="600">${text}</text>
+       </g>`
+    )
+    count++
+  }
+
   return `
     <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scatter fallback">
       <style>
@@ -313,10 +398,12 @@ function buildScatterFallbackSVG({
       ${yTicks}
       ${s1}
       ${s2}
+      ${labels.join("")}
       ${legend}
     </svg>
   `
 }
+
 
 function buildBarFallbackSVG({
   rows,
