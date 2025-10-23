@@ -116,20 +116,28 @@
 .btn2 {
   padding: 0.625rem 1.5rem;
   background: color-mix(in srgb, var(--color-muted) 80%, black);
-  color: var(--color-muted-foreground);
+  border-color: color-mix(in srgb, var(--color-border) 100%, black);
+  border-width: 1px;
+  /* New design 
+  background: var(--color-muted2);
   border-color: var(--color-border);
   border-width: 1px;
+  */
+  background: none;
+  color: var(--color-muted-foreground);
   border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  filter: brightness(1.4);
-  transition: opacity 0.2s;
+  transition: opacity 0.5s;
   white-space: nowrap;
 }
 
 .btn2:hover:not(:disabled) {
   opacity: 0.9;
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 100%, black);
+  transition: color 0.5s;
 }
 
 .btn2:disabled {
@@ -221,7 +229,7 @@
 }
 
 .colhead:hover{
-  background: var(--color--popover);
+  background: var(--color-popover);
 }
 
 .rowhead {
