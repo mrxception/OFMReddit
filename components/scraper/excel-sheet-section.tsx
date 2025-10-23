@@ -360,7 +360,7 @@ export default function ExcelSheetSection({
           <CheckboxRow />
 
           {hasTop10 && !compare && (
-            <div className={`${s.tableContainer} overflow-x-auto overflow-y-auto`} ref={containerRef}>
+            <div className={`${s.tableContainer} overflow-x-auto overflow-y-auto rounded-md`} ref={containerRef}>
               <div
                 className={s.excel}
                 role="table"
