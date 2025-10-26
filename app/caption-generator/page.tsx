@@ -8,6 +8,7 @@ import { CaptionResults } from "@/components/caption-generator/caption-results"
 import { AiBotStatus } from "@/components/caption-generator/ai-bot-status"
 import { useToast } from "@/hooks/use-toast"
 import { Bot, ThumbsUp, Sparkles } from "lucide-react"
+import s from "@/styles/scraper.module.css"
 
 export type Post = {
   id: string
@@ -247,7 +248,7 @@ export default function CaptionGeneratorPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+      <div className={`min-h-screen ${s.bgPattern} text-foreground flex items-center justify-center`}>
         <div className="flex items-center justify-center gap-3 flex-col text-center">
           <div className="relative">
             <div className="w-12 h-12 rounded-full flex items-center justify-center text-primary-foreground bg-primary animate-bounce">
@@ -267,7 +268,7 @@ export default function CaptionGeneratorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className={`min-h-screen ${s.bgPattern} text-foreground`}>
       <div className="flex flex-col lg:grid lg:grid-cols-[240px_1fr_560px] gap-0 min-h-[calc(100vh-73px)]">
         <div className="lg:border-r lg:border-border">
           <PostsList
