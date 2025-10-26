@@ -1,8 +1,69 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { DOMParser } from "@xmldom/xmldom";
-import { ragEngine } from "@/lib/rag-engine";
+import { type NextRequest, NextResponse } from "next/server"
+import { verifyToken } from "@/lib/auth"
+import { query } from "@/lib/db"
+import { DOMParser } from "@xmldom/xmldom"
+
+function detectAttachedFiles(body: any): { hasFiles: boolean; files: string[] } {
+  const files: string[] = []
+
+  if (body.attachments && Array.isArray(body.attachments)) {
+    body.attachments.forEach((attachment: any) => {
+      if (attachment.name) {
+        files.push(attachment.name)
+      }
+    })
+  }
+
+  if (body.documents && Array.isArray(body.documents)) {
+    body.documents.forEach((doc: any) => {
+      if (doc.filename || doc.name) {
+        files.push(doc.filename || doc.name)
+      }
+    })
+  }
+
+  if (body.documentUrls && Array.isArray(body.documentUrls)) {
+    body.documentUrls.forEach((url: string) => {
+      const filename = url.split("/").pop() || url
+      files.push(filename)
+    })
+  }
+
+  return {
+    hasFiles: files.length > 0,
+    files: files,
+  }
+}
+
+async function fetchDocuments(documentUrls: string[]): Promise<{ name: string; content: string }[]> {
+  if (!documentUrls || documentUrls.length === 0) {
+    return []
+  }
+
+  const documents: { name: string; content: string }[] = []
+
+  for (const url of documentUrls) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
+      if (!response.ok) {
+        continue
+      }
+      const { default: pdfParse } = await import("pdf-parse")
+      const arrayBuffer = await response.arrayBuffer()
+      const pdfData = await pdfParse(Buffer.from(arrayBuffer))
+      const text = pdfData.text
+      const filename = url.split("/").pop() || `document-${Date.now()}`
+      documents.push({ name: filename, content: text.slice(0, 1000) })
+    } catch (error) {
+      console.log("DOCUMENT FETCH ERROR:", error)
+    }
+  }
+
+  return documents
+}
 
 function sanitizeText(text: string): string {
   return text
@@ -10,22 +71,37 @@ function sanitizeText(text: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/'/g, "&apos;")
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    const token = request.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = verifyToken(token);
+    const payload = verifyToken(token)
     if (!payload) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
-    const body = await request.json();
+    const body = await request.json()
+
+    body.documentUrls = [
+      "https://res.cloudinary.com/defkzzqcs/raw/upload/v1760423100/admin-documents/I",
+      "https://res.cloudinary.com/defkzzqcs/raw/upload/v1760423139/admin-documents/IV",
+      "https://res.cloudinary.com/defkzzqcs/raw/upload/v1760423141/admin-documents/III",
+      "https://res.cloudinary.com/defkzzqcs/raw/upload/v1760435485/admin-documents/II",
+    ]
+
+    const documents = await fetchDocuments(body.documentUrls)
+    const fileAttachmentInfo = detectAttachedFiles(body)
+    console.log("FILE ATTACHMENT DETECTION:", {
+      filesAttached: fileAttachmentInfo.hasFiles,
+      attachedFiles: fileAttachmentInfo.files,
+    })
+
     const {
       mode,
       physicalFeatures,
@@ -39,26 +115,26 @@ export async function POST(request: NextRequest) {
       isInteractive,
       contentType,
       subredditName,
-    } = body;
+    } = body
 
     if (!mode || !gender) {
-      return NextResponse.json({ error: "Missing required fields: mode and gender are required" }, { status: 400 });
+      return NextResponse.json({ error: "Missing required fields: mode and gender are required" }, { status: 400 })
     }
 
-    const clickbaitStyle = isInteractive ? "y" : "n";
+    const clickbaitStyle = isInteractive ? "y" : "n"
 
     const promptResult = await query(
       "SELECT prompt_text FROM prompts WHERE name = ? ORDER BY created_at DESC LIMIT 1",
       ["caption_generator"],
-    );
+    )
 
     if (!promptResult || promptResult.length === 0) {
-      throw new Error("Caption generator prompt not found in database");
+      throw new Error("Caption generator prompt not found in database")
     }
 
-    const basePrompt = promptResult[0].prompt_text;
+    const basePrompt = promptResult[0].prompt_text
 
-    let captionCount = 5;
+    let captionCount = 5
 
     const patterns = [
       /YOU MUST GENERATE EXACTLY\s+(\d+)\s+CAPTIONS/i,
@@ -66,95 +142,70 @@ export async function POST(request: NextRequest) {
       /(\d+)\s+captions/i,
       /exactly\s+(\d+)/i,
       /must\s+(?:be|have|contain)\s+(\d+)/i,
-    ];
+    ]
 
     for (const pattern of patterns) {
-      const match = basePrompt.match(pattern);
+      const match = basePrompt.match(pattern)
       if (match) {
-        const extracted = Number.parseInt(match[1], 10);
+        const extracted = Number.parseInt(match[1], 10)
         if (Number.isInteger(extracted) && extracted >= 1 && extracted <= 20) {
-          captionCount = extracted;
-          break;
+          captionCount = extracted
+          break
         }
       }
     }
 
-    console.log("\n========================================");
-    console.log("RAG RESEARCH ASSISTANT - STARTING SEARCH");
-    console.log("========================================\n");
+    let knowledgeBaseSection = ""
+    const documentLog: any[] = []
 
-    const ragResults = await ragEngine.search({
-      physicalFeatures,
-      gender,
-      subredditType,
-      visualContext,
-      captionMood,
-      creativeStyle,
-      contentType,
-      subredditName,
-    });
+    const fileAttachmentStatus = fileAttachmentInfo.hasFiles
+      ? `Files are attached. List of attached files: ${fileAttachmentInfo.files.join(", ")}`
+      : "No files are attached."
 
-    let knowledgeBaseSection = "";
-    const ragLogDetails: any[] = [];
-
-    if (ragResults.length > 0) {
-      console.log(`\n[RAG] Found ${ragResults.length} relevant pages from indexed documents`);
-
-      ragResults.forEach((result, index) => {
-        console.log(`\n--- Result ${index + 1} ---`);
-        console.log(`Document: ${result.documentName}`);
-        console.log(`Page Number: ${result.pageNumber}`);
-        console.log(`Relevance Score: ${result.relevanceScore.toFixed(2)}`);
-        console.log(`Matched Terms: ${result.matchedTerms.join(", ")}`);
-        console.log(`Content Preview: ${result.content.substring(0, 200)}...`);
-
-        ragLogDetails.push({
-          document: result.documentName,
-          page: result.pageNumber,
-          score: result.relevanceScore.toFixed(2),
-          matchedTerms: result.matchedTerms,
-          contentPreview: result.content.substring(0, 300),
-        });
+    if (documents.length > 0) {
+      documents.forEach((doc, index) => {
+        documentLog.push({
+          document: doc.name,
+          contentPreview: doc.content.substring(0, 300),
+        })
 
         knowledgeBaseSection += `
-<document name="${result.documentName}" page="${result.pageNumber}" relevance_score="${result.relevanceScore.toFixed(2)}">
-<matched_terms>${result.matchedTerms.join(", ")}</matched_terms>
+<document name="${doc.name}" index="${index + 1}">
 <content>
-${result.content}
+${sanitizeText(doc.content)}
 </content>
 </document>
-`;
-      });
+`
+      })
 
       knowledgeBaseSection = `
 <knowledge_base>
-  <status>Successfully retrieved ${ragResults.length} relevant pages from indexed documents</status>
+  <status>Successfully retrieved ${documents.length} documents</status>
   <instruction>
-    These pages were selected by the RAG Research Assistant based on semantic relevance to the user's input.
-    Use the information, examples, templates, and guidelines from these pages to generate accurate captions.
-    Pay special attention to rules about what makes captions successful or failed.
+    Use the provided document content to inform caption generation. The documents contain relevant guidelines, examples, and rules from the Project Apex knowledge base. Ensure captions align with the provided content and user input. CRITICAL: Do NOT start any caption with the word "just" as per the rules in the Project Apex documents.
   </instruction>
 ${knowledgeBaseSection}
-</knowledge_base>`;
+</knowledge_base>`
     } else {
-      console.log("\n[RAG] No relevant pages found in indexed documents");
       knowledgeBaseSection = `
 <knowledge_base>
-  <status>No relevant pages found in indexed documents</status>
-  <instruction>Generate captions based on base instructions only</instruction>
-</knowledge_base>`;
+  <status>No documents retrieved</status>
+  <instruction>Generate captions based on base instructions only. CRITICAL: Do NOT start any caption with the word "just".</instruction>
+</knowledge_base>`
     }
-
-    console.log("\n========================================");
-    console.log("RAG RESEARCH ASSISTANT - SEARCH COMPLETE");
-    console.log("========================================\n");
 
     const fullPrompt = `<?xml version="1.0" encoding="UTF-8"?>
 <prompt>
   <meta_instruction priority="CRITICAL">
     YOU MUST GENERATE EXACTLY ${captionCount} CAPTIONS. NO MORE, NO LESS.
     Count: ${captionCount}
+    CRITICAL: Do NOT start any caption with the word "just".
   </meta_instruction>
+
+  <file_attachment_instruction>
+    Before generating captions, confirm whether files are attached and list them. Include the following statement in your response, before the captions:
+    <file_attachment_status>${sanitizeText(fileAttachmentStatus)}</file_attachment_status>
+  </file_attachment_instruction>
 
   <base_instructions>
 ${basePrompt}
@@ -178,7 +229,7 @@ ${knowledgeBaseSection}
   <output_format priority="CRITICAL">
     <instruction>
       YOU MUST RETURN EXACTLY ${captionCount} CAPTION ELEMENTS.
-      Use ONLY the XML format specified below.
+      Use ONLY the XML format specified below. Include the <file_attachment_status> tag before the <post> element.
     </instruction>
 
     <required_structure>
@@ -186,6 +237,7 @@ ${knowledgeBaseSection}
 <![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
 <caption_results>
+  <file_attachment_status>[Status of file attachments]</file_attachment_status>
   <post id="1">
     <caption>
       <option>Option 1: [Brief Label]</option>
@@ -201,127 +253,145 @@ ${knowledgeBaseSection}
       </example>
     </required_structure>
   </output_format>
-</prompt>`;
+</prompt>`
 
-    console.log("\n========================================");
-    console.log("FULL PROMPT SENT TO AI");
-    console.log("========================================\n");
-    console.log(fullPrompt);
+    console.log("FULL PROMPT SENT TO AI:", fullPrompt)
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiUrl = "https://router.huggingface.co/novita/v3/openai/chat/completions"
+    const apiKey = process.env.AI_API_KEY
+
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      throw new Error("HUGGINGFACE_API_KEY is not configured")
     }
 
-    let response;
-    let data;
-    let text;
-    let captions: { option: string; text: string }[] = [];
-    let attempt = 0;
-    const maxAttempts = 3;
+    let response
+    let data
+    let text
+    let captions: { option: string; text: string }[] = []
+    let attachmentStatus = ""
+    let attempt = 0
+    const maxAttempts = 3
+    const timeoutMs = 15000
 
     while (attempt < maxAttempts) {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+      const requestBody = {
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert caption generator. Always respond with valid XML format as specified. Use the provided document content to inform caption generation, acting as the retrieval system to select relevant information. Include file attachment status as instructed. CRITICAL: Do NOT start any caption with the word 'just'.",
+          },
+          {
+            role: "user",
+            content: fullPrompt,
+          },
+        ],
+        model: "deepseek/deepseek-v3-0324",
+        temperature: 1.5,
+        max_tokens: 8192,
+        stream: false,
+      }
+
+      try {
+        const startTime = Date.now()
+        response = await fetch(apiUrl, {
           method: "POST",
           headers: {
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }],
-            generationConfig: {
-              temperature: 1.5,
-              maxOutputTokens: 8192,
-            },
-            safetySettings: [
-              { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-              { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-              { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-            ],
-          }),
-        },
-      );
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+        const responseTime = Date.now() - startTime
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Gemini API error:", response.status, errorData);
-        throw new Error(`Gemini API error: ${response.status}`);
-      }
-
-      data = await response.json();
-
-      if (data.promptFeedback?.blockReason) {
-        throw new Error(`Content blocked: ${data.promptFeedback.blockReason}`);
-      }
-
-      text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        throw new Error("No content returned from AI");
-      }
-
-      console.log("[AI Response] Raw response length:", text.length);
-      console.log("[AI Response] Full response:", text);
-
-      const xmlMatches = text.match(/<\?xml[\s\S]*?<caption_results>[\s\S]*?<\/caption_results>/gi);
-      if (!xmlMatches || xmlMatches.length === 0) {
-        console.error("[AI Response] Full response:", text);
-        throw new Error("No valid XML found in AI response. Check logs for full response.");
-      }
-
-      let parsedCaptions = [];
-      for (const xmlText of xmlMatches) {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "application/xml");
-
-        const errorNode = xmlDoc.getElementsByTagName("parsererror");
-        if (errorNode.length > 0) {
-          console.warn("XML parsing warning:", errorNode[0].textContent);
-          continue;
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(`DeepSeek API error: ${response.status} - ${JSON.stringify(errorData)} - Request: ${JSON.stringify(requestBody)} - Response time: ${responseTime}ms`)
         }
 
-        const postElements = xmlDoc.getElementsByTagName("post");
-        if (postElements.length > 0) {
-          const captionElements = postElements[0].getElementsByTagName("caption");
-          for (let i = 0; i < captionElements.length; i++) {
-            const captionElement = captionElements[i];
-            const optionElement = captionElement.getElementsByTagName("option")[0];
-            const textElement = captionElement.getElementsByTagName("text")[0];
+        data = await response.json()
 
-            if (optionElement && textElement) {
-              parsedCaptions.push({
-                option: optionElement.textContent?.trim() || "",
-                text: sanitizeText(textElement.textContent?.trim() || ""), 
-              });
+        text = data.choices?.[0]?.message?.content
+        if (!text) {
+          throw new Error(`No content returned from AI - Response time: ${responseTime}ms`)
+        }
+
+        console.log("AI RAW RESPONSE:", text)
+
+        const xmlMatches = text.match(/<\?xml[\s\S]*?<caption_results>[\s\S]*?<\/caption_results>/gi)
+        if (!xmlMatches || xmlMatches.length === 0) {
+          throw new Error(`No valid XML found in AI response - Response time: ${responseTime}ms`)
+        }
+
+        const parsedCaptions = []
+        for (const xmlText of xmlMatches) {
+          const parser = new DOMParser()
+          const xmlDoc = parser.parseFromString(xmlText, "application/xml")
+
+          const errorNode = xmlDoc.getElementsByTagName("parsererror")
+          if (errorNode.length > 0) {
+            continue
+          }
+
+          const statusElements = xmlDoc.getElementsByTagName("file_attachment_status")
+          if (statusElements.length > 0) {
+            attachmentStatus = statusElements[0].textContent?.trim() || ""
+            console.log("AI FILE ATTACHMENT STATUS:", attachmentStatus)
+          }
+
+          const postElements = xmlDoc.getElementsByTagName("post")
+          if (postElements.length > 0) {
+            const captionElements = postElements[0].getElementsByTagName("caption")
+            for (let i = 0; i < captionElements.length; i++) {
+              const captionElement = captionElements[i]
+              const optionElement = captionElement.getElementsByTagName("option")[0]
+              const textElement = captionElement.getElementsByTagName("text")[0]
+
+              if (optionElement && textElement) {
+                parsedCaptions.push({
+                  option: optionElement.textContent?.trim() || "",
+                  text: sanitizeText(textElement.textContent?.trim() || ""),
+                })
+              }
             }
           }
         }
-      }
 
-      captions = parsedCaptions;
-      if (captions.length === captionCount) {
-        break;
-      } else {
-        console.warn(
-          `[AI Response] Attempt ${attempt + 1}: Expected ${captionCount} captions, received ${captions.length}. Retrying...`,
-        );
-        captions = [];
-        attempt++;
+        captions = parsedCaptions
+        if (captions.length === captionCount) {
+          break
+        }
+        captions = []
+        attempt++
+        requestBody.max_tokens = Math.floor(requestBody.max_tokens * 0.8)
+      } catch (error) {
+        clearTimeout(timeoutId)
+        if (attempt < maxAttempts - 1) {
+          continue
+        }
+        throw error
       }
     }
 
     if (captions.length !== captionCount) {
-      throw new Error(`Failed to generate exactly ${captionCount} captions after ${maxAttempts} attempts`);
+      throw new Error(`Failed to generate exactly ${captionCount} captions after ${maxAttempts} attempts`)
     }
+
+    console.log("DOCUMENT CONTENT PREVIEWS:", documentLog)
 
     return NextResponse.json({
       captions,
-      ragLog: ragLogDetails,
-    });
+      fileAttachmentStatus: attachmentStatus,
+      documentLog,
+      filesAttached: fileAttachmentInfo.hasFiles,
+      attachedFiles: fileAttachmentInfo.files,
+    })
   } catch (error: unknown) {
-    console.error("Error generating captions:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to generate captions";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Failed to generate captions"
+    console.log("ERROR:", errorMessage)
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
