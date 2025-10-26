@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import s from "@/styles/scraper.module.css"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -75,7 +76,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+    <div className={`min-h-screen flex items-center justify-center ${s.bgPattern} p-4`}>
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-2xl shadow-lg p-8">
           <div className="text-center mb-8">

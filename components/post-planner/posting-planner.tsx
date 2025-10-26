@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react"
 import OneDayPicker from "@/components/post-planner/one-day-picker"
 import AutoPlan from "@/components/post-planner/auto-plan"
 import HowItWorksModal from "@/components/post-planner/how-it-works"
+import s from "@/styles/scraper.module.css"
 
 type AxisDomain = ["auto" | number, "auto" | number]
 type AverageMetricKey = "mean_upvotes_all" | "median_upvotes_all"
@@ -14,7 +15,7 @@ type PostData = {
   title?: string
   upvotes: number
   comments: number
-  subscribers: number
+  subscribers?: number | null
   post_date_utc: string | number | Date
 }
 
@@ -87,7 +88,7 @@ const analyzeSubredditData = (posts: PostData[]): SubredditAnalysisData[] => {
     const avg_upvotes_all = avg(postsWithDates)
     const allUpvotes = postsWithDates.map(p => p.upvotes)
     const quart = getQuartiles(allUpvotes)
-    const maxSubscribers = Math.max(...postsWithDates.map(p => p.subscribers))
+    const maxSubscribers = postsWithDates.reduce((m, p) => Math.max(m, p.subscribers ?? 0), 0)
     const totalUpvotes = postsWithDates.reduce((s, p) => s + p.upvotes, 0)
     const totalComments = postsWithDates.reduce((s, p) => s + p.comments, 0)
     const averageComments = postsWithDates.length > 0 ? totalComments / postsWithDates.length : 0
@@ -142,6 +143,7 @@ export default function PostingPlanner({ rawPosts }: PostingPlannerProps) {
   const analyzedSubredditData = useMemo(() => analyzeSubredditData(rawPosts || []), [rawPosts])
 
   return (
+    <div className={`min-h-screen bg-background ${s.bgPattern}`}>
     <div className="mx-auto max-w-7xl space-y-6 md:p-6">
       <div className="rounded-lg border border-border bg-card p-4 space-y-4">
         <div className="flex justify-end">
@@ -179,6 +181,7 @@ export default function PostingPlanner({ rawPosts }: PostingPlannerProps) {
       )}
 
       <HowItWorksModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </div>
     </div>
   )
 }

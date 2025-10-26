@@ -7,7 +7,7 @@ interface Props {
   rows: any[];
 }
 
-export default function KeyInsightsSection({ rows }: Props) {
+export default function KeyInsightsSection({ rows, onInsights  }: { rows: any[]; onInsights?: (v: string[]) => void }) {
   const [isOpen, setIsOpen] = useState(true);
   const [insights, setInsights] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,6 +23,7 @@ export default function KeyInsightsSection({ rows }: Props) {
       });
       const json = await res.json();
       setInsights(Array.isArray(json?.insights) ? json.insights : []);
+      onInsights?.(Array.isArray(json?.insights) ? json.insights : [])
     } catch (error) {
       console.error("Failed to fetch insights:", error);
       setInsights(["Failed to generate insights. Please try again."]);
@@ -38,7 +39,7 @@ export default function KeyInsightsSection({ rows }: Props) {
   if (!rows || rows.length === 0) return null
 
   return (
-    <div className="rounded-lg border border-border bg-card">
+    <div id="key-insights-section" className="rounded-lg border border-border bg-card">
       <header
         className="p-6 cursor-pointer flex justify-between items-start"
         onClick={() => setIsOpen((v) => !v)}

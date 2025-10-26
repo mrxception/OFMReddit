@@ -53,6 +53,7 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
   const [generated, setGenerated] = useState<{ tiers: TierLists; junk: JunkList } | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [copyLabel, setCopyLabel] = useState("Copy List")
+  const [removed, setRemoved] = useState<Map<string, { tier: Tier, data: SubredditAnalysisData }>>(new Map())
 
   const cleaned = useMemo(() => {
     const by = new Map<string, SubredditAnalysisData>()
@@ -96,7 +97,6 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
   const handleGenerate = () => {
     const eligibility = cooldownDays + 1
     const pick = METRICS[metricKey].pick
-
     const eligible = nonJunk
       .filter(s => Number(s.days_since_last_post ?? 0) >= eligibility)
       .map(s => ({ ...s, tier: computedTierOf.get(s.subreddit) as Tier }))
@@ -113,6 +113,7 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
 
     setGenerated({ tiers, junk })
     setSelected(new Set())
+    setRemoved(new Map())
   }
 
   const toggle = (sub: string) => {
@@ -133,6 +134,43 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
   }
 
   const clear = () => setSelected(new Set())
+
+  const removeSub = (sub: string) => {
+    if (!generated) return
+    let removedEntry: { tier: Tier, data: SubredditAnalysisData } | null = null
+    setGenerated(g => {
+      if (!g) return g
+      const next: TierLists = { High: [...g.tiers.High], Medium: [...g.tiers.Medium], Low: [...g.tiers.Low] }
+      for (const t of ["High", "Medium", "Low"] as Tier[]) {
+        const idx = next[t].findIndex(x => x.subreddit === sub)
+        if (idx >= 0) {
+          removedEntry = removedEntry ?? { tier: t, data: next[t][idx] }
+          next[t] = next[t].filter(x => x.subreddit !== sub)
+        }
+      }
+      return { ...g, tiers: next }
+    })
+    setRemoved(prev => {
+      const m = new Map(prev)
+      if (removedEntry && !m.has(sub)) m.set(sub, removedEntry)
+      return m
+    })
+    setSelected(prev => {
+      const n = new Set(prev)
+      n.delete(sub)
+      return n
+    })
+  }
+
+  const restoreRemoved = () => {
+    if (!generated || removed.size === 0) return
+    const next: TierLists = { High: [...generated.tiers.High], Medium: [...generated.tiers.Medium], Low: [...generated.tiers.Low] }
+    removed.forEach(({ tier, data }, sub) => {
+      if (!next[tier].some(x => x.subreddit === sub)) next[tier].push(data)
+    })
+    setGenerated({ ...generated, tiers: next })
+    setRemoved(new Map())
+  }
 
   return (
     <div className="space-y-6">
@@ -183,22 +221,21 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
 
       {generated && (
         <div className="space-y-4">
-          {selected.size > 0 && (
-            <div className="p-4 rounded-lg border border-[color:var(--sidebar-primary)]/40 bg-card sticky top-[70px] z-10">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-[color:var(--sidebar-primary)] font-bold">Final Plan ({selected.size})</h3>
-                <div className="flex items-center gap-3">
-                  <button onClick={clear} className="text-sm text-muted-foreground hover:text-foreground">Clear</button>
-                  <button onClick={copy} className="text-sm px-3 py-1 rounded-md bg-[color:var(--sidebar-primary)] text-white">{copyLabel}</button>
-                </div>
-              </div>
-              <div className="max-h-24 overflow-y-auto pr-2">
-                <ul className="columns-2 sm:columns-3 md:columns-4 gap-x-4 text-sm">
-                  {[...selected].sort().map(s => <li key={s} className="truncate text-foreground/90">{s}</li>)}
-                </ul>
+          <div className="p-4 rounded-lg border border-[color:var(--sidebar-primary)]/40 bg-card sticky top-[70px] z-10">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-[color:var(--sidebar-primary)] font-bold">Final Plan ({selected.size})</h3>
+              <div className="flex items-center gap-3">
+                <button onClick={restoreRemoved} disabled={removed.size === 0} className={`text-sm px-3 py-1 rounded-md ${removed.size === 0 ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 text-white"}`}>Restore Removed Subreddits</button>
+                <button onClick={clear} className="text-sm text-muted-foreground hover:text-foreground">Clear</button>
+                <button onClick={copy} className="text-sm px-3 py-1 rounded-md bg-[color:var(--sidebar-primary)] text-white">{copyLabel}</button>
               </div>
             </div>
-          )}
+            <div className="max-h-24 overflow-y-auto pr-2">
+              <ul className="columns-2 sm:columns-3 md:columns-4 gap-x-4 text-sm">
+                {[...selected].sort().map(s => <li key={s} className="truncate text-foreground/90">{s}</li>)}
+              </ul>
+            </div>
+          </div>
 
           {(["High", "Medium", "Low"] as Tier[]).map(tier => {
             const { border, text } = tierStyle(tier)
@@ -218,6 +255,7 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
                           <th className="py-2 px-2">Subreddit</th>
                           <th className="py-2 px-2 text-center">Days Since Last Post</th>
                           <th className="py-2 px-2 text-center">{METRICS[metricKey].label}</th>
+                          <th className="py-2 px-2 w-10"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -232,6 +270,9 @@ export default function OneDayPicker({ allSubredditData }: { allSubredditData: S
                             </td>
                             <td className="py-2 px-2 text-center">{s.days_since_last_post}</td>
                             <td className="py-2 px-2 text-center">{Math.round(METRICS[metricKey].pick(s)).toLocaleString()}</td>
+                            <td className="py-2 px-2 text-right">
+                              <button onClick={() => removeSub(s.subreddit)} className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-destructive text-muted-foreground hover:text-foreground">×</button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

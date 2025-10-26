@@ -1,4 +1,3 @@
-// scatter-plot.tsx
 "use client"
 
 import React, { useMemo } from "react"
@@ -25,7 +24,6 @@ interface Props {
   xAxisLabel: string
   yAxisLabel: string
   height?: number
-
   xTickCount?: number
   xTickStep?: number
   xTicks?: number[]
@@ -98,6 +96,12 @@ export default function ScatterPlot({
   const tickColor = "var(--muted-foreground)"
   const gridStroke = "color-mix(in oklch, var(--muted-foreground) 15%, transparent)"
 
+  const unitTicks =
+    xAxis === "Total_Posts" && Number.isFinite(finalX[1]) && finalX[1] <= 15
+      ? Array.from({ length: Math.max(0, Math.floor(finalX[1])) }, (_, i) => i + 1)
+      : undefined
+  const computedTickCount = unitTicks ? undefined : 12
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ScatterChart margin={{ top: 20, right: 30, bottom: 40, left: 40 }}>
@@ -109,9 +113,11 @@ export default function ScatterPlot({
           tick={{ fill: tickColor }}
           stroke={tickColor}
           domain={finalX}
-          allowDataOverflow={false} 
-          tickCount={12}
+          allowDataOverflow={false}
+          tickCount={computedTickCount as any}
           allowDecimals={false}
+          ticks={unitTicks}
+          interval={unitTicks ? 0 : "preserveEnd"}
           tickFormatter={(t) =>
             new Intl.NumberFormat(undefined, { maximumFractionDigits: 0, minimumFractionDigits: 0 }).format(Number(t))
           }

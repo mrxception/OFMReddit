@@ -1,3 +1,61 @@
+.bgPattern {
+  position: relative;
+  min-height: 100vh;
+}
+
+.bgPattern::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background-image: url("/pattern.png");
+  background-repeat: repeat;
+  background-size: 680px auto;
+  background-position: top left;
+  background-attachment: fixed;
+
+  opacity: 1;
+}
+
+.bgPattern > * {
+  position: relative;
+  z-index: 1;
+}
+/*
+:global(.dark) .bgPattern::before {
+  background: var(--muted);
+
+  -webkit-mask-image: url("/pattern.png");
+  -webkit-mask-repeat: repeat;
+  -webkit-mask-size: 680px auto;
+  -webkit-mask-position: top left;
+
+  mask-image: url("/pattern.png");
+  mask-repeat: repeat;
+  mask-size: 680px auto;
+  mask-position: top left;
+
+  background-image: none;
+
+  opacity: 1; 
+}
+*/
+
+:global(.dark) .bgPattern::before {
+  background-image: url("/patternd.png"); 
+  background-repeat: repeat;
+  background-size: 680px auto;
+  background-position: top left;
+  background-attachment: fixed; 
+
+  -webkit-mask-image: none;
+  mask-image: none;
+
+  opacity: 0.4; 
+}
+
 .row {
   display: flex;
   gap: 1rem;
@@ -51,6 +109,38 @@
 }
 
 .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn2 {
+  padding: 0.625rem 1.5rem;
+  background: color-mix(in srgb, var(--color-muted) 80%, black);
+  border-color: color-mix(in srgb, var(--color-border) 100%, black);
+  border-width: 1px;
+  /* New design 
+  background: var(--color-muted2);
+  border-color: var(--color-border);
+  border-width: 1px;
+  */
+  background: none;
+  color: var(--color-muted-foreground);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.5s;
+  white-space: nowrap;
+}
+
+.btn2:hover:not(:disabled) {
+  opacity: 0.9;
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 100%, black);
+  transition: color 0.5s;
+}
+
+.btn2:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -139,7 +229,7 @@
 }
 
 .colhead:hover{
-  background: var(--color--popover);
+  background: var(--color-popover);
 }
 
 .rowhead {

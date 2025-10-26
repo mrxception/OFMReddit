@@ -164,7 +164,7 @@ export default function AutoPlan({ allSubredditData }: { allSubredditData: Subre
         </div>
 
         <details className="text-sm">
-          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Advanced: Junk & Priority Settings</summary>
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Advanced: Junk Tier Settings</summary>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-3 pt-3 border-t border-border">
             <div className="flex items-center gap-3">
               <label htmlFor="jp" className="text-foreground/90">Min Posts &gt;</label>
@@ -192,6 +192,9 @@ export default function AutoPlan({ allSubredditData }: { allSubredditData: Subre
             {planGenerated ? "Regenerate 5-Day Plan" : "Generate 5-Day Plan"}
           </button>
         </div>
+        <div className="text-center pt-2 -mt-3 text-xs text-muted-foreground">
+          Exclude any subreddit from the plan below and regenerate to refresh the plan considering the exclusions.
+        </div>
       </div>
 
       {plan && (
@@ -204,7 +207,7 @@ export default function AutoPlan({ allSubredditData }: { allSubredditData: Subre
               </p>
               <div className="flex flex-wrap gap-2">
                 {[...removed].sort().map(s => (
-                  <button key={s} onClick={() => addBack(s)} className="text-xs px-2 py-1 rounded bg-rose-900/40 text-rose-300 hover:bg-rose-800/40">
+                  <button key={s} onClick={() => addBack(s)} className="text-xs px-2 py-1 rounded bg-rose-900/40 text-gray hover:bg-rose-600/40">
                     {s}
                   </button>
                 ))}
@@ -222,10 +225,22 @@ export default function AutoPlan({ allSubredditData }: { allSubredditData: Subre
                 <ul className="space-y-2 flex-1">
                   {subreddits.map((s, i) => {
                     if (s.subreddit === "Empty Slot") {
-                      return <li key={i} className="text-muted-foreground italic bg-muted/40 p-2 rounded-md h-[52px] flex items-center">Empty Slot</li>
+                      return (
+                        <li key={i} className="text-muted-foreground italic bg-muted/40 p-2 rounded-md h-[52px] flex items-center">
+                          Empty Slot
+                        </li>
+                      )
                     }
+
+                    const isRemoved = removed.has(s.subreddit)
+
                     return (
-                      <li key={`${s.subreddit}-${i}`} className="group relative bg-muted/40 p-2 rounded-md text-foreground flex items-start gap-2">
+                      <li
+                        key={`${s.subreddit}-${i}`}
+                        className={`group relative p-2 rounded-md text-foreground flex items-start gap-2 border transition-colors
+                        ${isRemoved ? "bg-rose-500/20 border-rose-500/40" : "bg-muted/40 border-transparent"}
+                      `}
+                      >
                         <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${dot(s.tier ?? null)}`} />
                         <div className="flex-1 min-w-0">
                           <div className="truncate font-medium">{s.subreddit}</div>
@@ -235,9 +250,12 @@ export default function AutoPlan({ allSubredditData }: { allSubredditData: Subre
                             <span>{s.dynamic_days_since} days ago</span>
                           </div>
                         </div>
+
                         <button
                           onClick={() => remove(s.subreddit)}
-                          className="absolute top-1/2 right-1 -translate-y-1/2 p-1.5 rounded-full bg-card text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-rose-500 hover:text-white transition-all"
+                          className={`absolute top-1/2 right-1 -translate-y-1/2 p-1.5 rounded-full bg-card text-muted-foreground transition-all
+                          ${isRemoved ? "opacity-0 pointer-events-none" : "opacity-0 group-hover:opacity-100 hover:bg-rose-500 hover:text-white"}
+                        `}
                           title={`Remove ${s.subreddit}`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -247,6 +265,8 @@ export default function AutoPlan({ allSubredditData }: { allSubredditData: Subre
                       </li>
                     )
                   })}
+
+
                 </ul>
               </div>
             ))}

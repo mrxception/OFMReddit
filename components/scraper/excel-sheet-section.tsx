@@ -1,23 +1,19 @@
 "use client"
 
 import React from "react"
-
-type Msg = { type: string; text: string } | null
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface ExcelSheetSectionProps {
   hasTop10: boolean
   username: string
   username2?: string
-  cols: Array<{ key: string; label: string }>
   rows: any[]
   rows2?: any[]
   fmtUTC: (iso: string) => string
-  files: Array<{ id: string; filename: string }>
-  historyRef: React.RefObject<HTMLDivElement | null>
-  handleDownload: (id: string, filename: string) => void
-  handleDelete: (id: string) => void
-  msg: Msg
   s: { [key: string]: string }
+  defaults: { inclVote: boolean; inclComm: boolean; inclMed: boolean; inclSubs: boolean; inclPER: boolean }
+  subsAvailable: boolean
+  onExport: (kind: "data" | "raw", target: "u1" | "u2", opts: { inclVote: boolean; inclComm: boolean; inclMed: boolean; inclSubs: boolean; inclPER: boolean }) => void
 }
 
 function measureTextPx(text: string, font: string) {
@@ -48,20 +44,23 @@ export default function ExcelSheetSection({
   hasTop10,
   username,
   username2,
-  cols,
   rows,
   rows2,
   fmtUTC,
-  files,
-  historyRef,
-  handleDownload,
-  handleDelete,
-  msg,
   s,
+  defaults,
+  subsAvailable,
+  onExport,
 }: ExcelSheetSectionProps) {
   const compare = !!username2 && Array.isArray(rows2) && rows2.length > 0
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = React.useState(true)
+
+  const [inclVote, setInclVote] = React.useState(defaults.inclVote)
+  const [inclComm, setInclComm] = React.useState(defaults.inclComm)
+  const [inclMed, setInclMed] = React.useState(defaults.inclMed)
+  const [inclSubs, setInclSubs] = React.useState(subsAvailable ? defaults.inclSubs : false)
+  const [inclPER, setInclPER] = React.useState(subsAvailable ? defaults.inclPER : false)
 
   const nonSortableSingle = new Set(["Subreddit", "LastDateTimeUTC"])
   const nonSortableCompare = new Set(["Subreddit"])
@@ -74,10 +73,22 @@ export default function ExcelSheetSection({
   const [colMinPx, setColMinPx] = React.useState<number[]>([])
   const [gridCols, setGridCols] = React.useState<string>("")
 
-  const labelWithArrowSingle = (key: string, label: string) =>
-    sortKeySingle === key ? `${label} ${sortDirSingle === "desc" ? "▼" : "▲"}` : label
-  const labelWithArrowComp = (key: string, label: string) =>
-    sortKeyComp === key ? `${label} ${sortDirComp === "desc" ? "▼" : "▲"}` : label
+  const cols = React.useMemo(() => {
+    const list: Array<{ key: string; label: string }> = [
+      { key: "Subreddit", label: "subreddit name" },
+      { key: "Total_Posts", label: "number of posts" },
+      { key: "Avg_Upvotes_Per_Post", label: "av. upvotes (mean)" },
+      { key: "Avg_Comments_Per_Post", label: "av. root comments" },
+      { key: "Post_Frequency", label: "post frequency" },
+    ]
+    if (inclMed) list.splice(5, 0, { key: "Median_Upvotes", label: "median upvotes" })
+    if (inclVote) list.push({ key: "Total_Upvotes", label: "total upvotes" })
+    if (inclComm) list.push({ key: "Total_Comments", label: "total root comments" })
+    if (subsAvailable && inclSubs) list.push({ key: "Subreddit_Subscribers", label: "subreddit member count" })
+    if (subsAvailable && inclPER) { list.push({ key: "WPI_Score", label: "wpi score" }); list.push({ key: "WPI_Rating", label: "wpi rating" }) }
+    list.push({ key: "LastDateTimeUTC", label: "last post date UTC" })
+    return list
+  }, [inclMed, inclVote, inclComm, inclSubs, inclPER, subsAvailable])
 
   const metrics = React.useMemo(() => cols.filter(c => c.key !== "Subreddit"), [cols])
 
@@ -93,10 +104,14 @@ export default function ExcelSheetSection({
     return m
   }, [rows2])
 
-  const unionSubs: string[] = React.useMemo(() => {
+  const overlapSubs: string[] = React.useMemo(() => {
+    if (!compare) return []
     const a = new Set<string>((rows || []).map((r: any) => r?.Subreddit).filter(Boolean))
-    if (compare) for (const r of rows2 || []) if (r?.Subreddit) a.add(r.Subreddit)
-    return Array.from(a).sort((x, y) => x.localeCompare(y))
+    const b = new Set<string>((rows2 || []).map((r: any) => r?.Subreddit).filter(Boolean))
+    const inter: string[] = []
+    a.forEach(s => { if (b.has(s)) inter.push(s) })
+    inter.sort((x, y) => x.localeCompare(y))
+    return inter
   }, [rows, rows2, compare])
 
   const sortedRowsSingle = React.useMemo(() => {
@@ -140,13 +155,8 @@ export default function ExcelSheetSection({
     if (compare) return
     let cancelled = false
     const run = async () => {
-      try {
-        // @ts-ignore
-        if (document.fonts?.ready) await (document as any).fonts.ready
-      } catch {}
-      const font =
-        getComputedStyle(document.body).font ||
-        "14px system-ui, -apple-system, Segoe UI, Arial, sans-serif"
+      try { if ((document as any).fonts?.ready) await (document as any).fonts.ready } catch {}
+      const font = getComputedStyle(document.body).font || "14px system-ui, -apple-system, Segoe UI, Arial, sans-serif"
       const PADDING = 16
       const ICON_PAD = 16
       const MIN = 104
@@ -159,14 +169,12 @@ export default function ExcelSheetSection({
           const r = sortedRowsSingle[i]
           let v: any = r?.[c.key]
           if (c.key === "LastDateTimeUTC") v = v ? fmtUTC(v) : ""
-          else if (
-            c.key === "Total_Upvotes" ||
-            c.key === "Total_Comments" ||
-            c.key === "Subreddit_Subscribers" ||
-            c.key === "WPI_Score"
-          ) {
+          else if (c.key === "Total_Upvotes" || c.key === "Total_Comments" || c.key === "Subreddit_Subscribers" || c.key === "WPI_Score") {
             const n = Number(v)
             v = Number.isFinite(n) ? n.toLocaleString() : (v ?? "")
+          } else if (c.key === "Avg_Upvotes_Per_Post" || c.key === "Avg_Comments_Per_Post") {
+            const n = Number(v)
+            v = Number.isFinite(n) ? Math.round(n).toLocaleString() : (v ?? "")
           } else {
             v = v ?? ""
           }
@@ -178,9 +186,7 @@ export default function ExcelSheetSection({
       if (!cancelled) setColMinPx(mins)
     }
     run()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [
     compare,
     cols.map((c) => c.key + ":" + c.label).join("|"),
@@ -207,9 +213,10 @@ export default function ExcelSheetSection({
   }, [compare, colMinPx])
 
   const sortedSubsComp = React.useMemo(() => {
-    if (!sortKeyComp) return unionSubs
+    const base = overlapSubs
+    if (!sortKeyComp) return base
     const [metric, who] = sortKeyComp.split("__")
-    const arr = unionSubs.slice()
+    const arr = base.slice()
     const getVal = (sub: string) => {
       const src = who === "u2" ? bySub2.get(sub) : bySub1.get(sub)
       const v = src ? src[metric] : null
@@ -233,7 +240,7 @@ export default function ExcelSheetSection({
       return sortDirComp === "asc" ? cmp : -cmp
     })
     return arr
-  }, [unionSubs, sortKeyComp, sortDirComp, bySub1, bySub2])
+  }, [overlapSubs, sortKeyComp, sortDirComp, bySub1, bySub2])
 
   const onHeaderClickComp = (compoundKey: string) => {
     const [metric] = compoundKey.split("__")
@@ -255,203 +262,245 @@ export default function ExcelSheetSection({
     return segs.join(" ")
   }, [metrics])
 
-  const subHeaderLabels = React.useMemo(() => {
-    if (!compare) return []
-    const out: Array<{ key: string; label: string }> = []
-    for (const m of metrics) {
-      out.push({ key: `${m.key}__u1`, label: "user1" })
-      out.push({ key: `${m.key}__u2`, label: "user2" })
-    }
-    return out
-  }, [metrics, compare])
-
   const renderCellValue = (metricKey: string, rowObj: any) => {
     let v: any = rowObj ? rowObj[metricKey] : undefined
     if (metricKey === "LastDateTimeUTC") v = v ? fmtUTC(v) : ""
     else if (metricKey === "Total_Upvotes" || metricKey === "Total_Comments" || metricKey === "Subreddit_Subscribers" || metricKey === "WPI_Score") {
       const n = Number(v)
       v = Number.isFinite(n) ? n.toLocaleString() : (v ?? "")
+    } else if (metricKey === "Avg_Upvotes_Per_Post" || metricKey === "Avg_Comments_Per_Post") {
+      const n = Number(v)
+      v = Number.isFinite(n) ? Math.round(n).toLocaleString() : (v ?? "")
     } else {
       v = v ?? ""
     }
     return v
   }
 
+  if (!rows || rows.length === 0) return null
+
+  const CheckboxRow = () => (
+    <div className="mt-1 mb-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <label htmlFor="inclVote" className="flex items-center gap-2 cursor-pointer">
+        <Checkbox
+          id="inclVote"
+          checked={inclVote}
+          onCheckedChange={(v) => setInclVote(Boolean(v))}
+          className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
+        />
+        <span className="text-sm text-foreground">Total upvotes</span>
+      </label>
+      <label htmlFor="inclComm" className="flex items-center gap-2 cursor-pointer">
+        <Checkbox
+          id="inclComm"
+          checked={inclComm}
+          onCheckedChange={(v) => setInclComm(Boolean(v))}
+          className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
+        />
+        <span className="text-sm text-foreground">Total comments</span>
+      </label>
+      <label htmlFor="inclMed" className="flex items-center gap-2 cursor-pointer">
+        <Checkbox
+          id="inclMed"
+          checked={inclMed}
+          onCheckedChange={(v) => setInclMed(Boolean(v))}
+          className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
+        />
+        <span className="text-sm text-foreground">Median average upvotes per post</span>
+      </label>
+      {subsAvailable && (
+        <>
+          <label htmlFor="inclSubs" className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              id="inclSubs"
+              checked={inclSubs}
+              onCheckedChange={(v) => setInclSubs(Boolean(v))}
+              className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
+            />
+            <span className="text-sm text-foreground">Subreddit member count</span>
+          </label>
+          <label htmlFor="inclPER" className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              id="inclPER"
+              checked={inclPER}
+              onCheckedChange={(v) => setInclPER(Boolean(v))}
+              className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
+            />
+            <span className="text-sm text-foreground">Performance rating</span>
+          </label>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <div className="rounded-lg border border-border bg-card">
-      <header
-        className="p-6 cursor-pointer flex justify-between items-center"
-        onClick={() => setIsOpen(v => !v)}
-        aria-expanded={isOpen}
-        aria-controls="excel-content"
-      >
+      <header className="p-6 cursor-pointer flex justify-between items-center" onClick={() => setIsOpen(v => !v)} aria-expanded={isOpen} aria-controls="excel-content">
         <h3 className="text-xl font-bold">
           Subreddit Performance Table{username ? ` for u/${username}` : ""}{compare && username2 ? ` vs u/${username2}` : ""}
         </h3>
-        <svg
-          className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
+        <svg className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </header>
 
       {isOpen && (
         <div id="excel-content" className="px-4 md:px-6 pb-4 md:pb-6">
+          {!compare && (
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className={s.hint}>Displaying {rows.length} subreddits (scroll to view all)</p>
+            </div>
+          )}
+          {compare && (
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className={s.hint}>Displaying {overlapSubs.length} overlapping subreddits {overlapSubs.length === 0 ? "(none)" : "(scroll to view all)"}</p>
+            </div>
+          )}
+
+          <CheckboxRow />
+
           {hasTop10 && !compare && (
-            <div>
-              <div className="mb-4">
-                <p className={s.hint}>Displaying {sortedRowsSingle.length} subreddits (scroll to view all)</p>
+            <div className={`${s.tableContainer} overflow-x-auto overflow-y-auto rounded-md`} ref={containerRef}>
+              <div
+                className={s.excel}
+                role="table"
+                aria-label="Subreddit Performance (single)"
+                style={{ gridTemplateColumns: gridCols || `48px repeat(${cols.length}, minmax(156px, 1fr))`, minWidth: "860px" }}
+              >
+                <div className={`${s.cell} ${s.corner}`} aria-hidden="true"> </div>
+                {cols.map((c, i) => {
+                  const clickable = !nonSortableSingle.has(c.key)
+                  const label = (() => {
+                    if (sortKeySingle === c.key) return `${c.label} ${sortDirSingle === "desc" ? "▼" : "▲"}`
+                    return c.label
+                  })()
+                  return (
+                    <div
+                      key={`col-${c.key}`}
+                      className={`${s.cell} ${s.colhead}`}
+                      role="columnheader"
+                      aria-colindex={i + 1}
+                      title={c.label}
+                      onClick={() => clickable && onHeaderClickSingle(c.key)}
+                      style={{ cursor: clickable ? "pointer" : "default" }}
+                    >
+                      {label}
+                    </div>
+                  )
+                })}
+                {sortedRowsSingle.map((row: any, r: number) => (
+                  <React.Fragment key={`row-${r}`}>
+                    <div className={`${s.cell} ${s.rowhead}`} role="rowheader">{r + 1}</div>
+                    {cols.map((c) => {
+                      let val: any = row?.[c.key]
+                      if (c.key === "LastDateTimeUTC") val = val ? fmtUTC(val) : ""
+                      if (c.key === "Total_Upvotes" || c.key === "Total_Comments" || c.key === "Subreddit_Subscribers" || c.key === "WPI_Score") {
+                        const n = Number(val)
+                        val = Number.isFinite(n) ? n.toLocaleString() : (val ?? "")
+                      }
+                      if (c.key === "Avg_Upvotes_Per_Post" || c.key === "Avg_Comments_Per_Post") {
+                        const n = Number(val)
+                        val = Number.isFinite(n) ? Math.round(n).toLocaleString() : (val ?? "")
+                      }
+                      return (
+                        <div key={`${r}-${c.key}`} className={s.cell} role="cell" title={String(val ?? "")}>{val ?? ""}</div>
+                      )
+                    })}
+                  </React.Fragment>
+                ))}
               </div>
-              <div className={`${s.tableContainer} overflow-x-auto overflow-y-auto`} ref={containerRef}>
-                <div
-                  className={s.excel}
-                  role="table"
-                  aria-label="Subreddit Performance (single)"
-                  style={{
-                    gridTemplateColumns: gridCols || `48px repeat(${cols.length}, minmax(156px, 1fr))`,
-                    minWidth: "860px",
-                  }}
-                >
-                  <div className={`${s.cell} ${s.corner}`} aria-hidden="true"> </div>
-                  {cols.map((c, i) => {
-                    const clickable = !nonSortableSingle.has(c.key)
-                    return (
-                      <div
-                        key={`col-${c.key}`}
-                        className={`${s.cell} ${s.colhead}`}
-                        role="columnheader"
-                        aria-colindex={i + 1}
-                        title={c.label}
-                        onClick={() => clickable && onHeaderClickSingle(c.key)}
-                        style={{ cursor: clickable ? "pointer" : "default" }}
-                      >
-                        {labelWithArrowSingle(c.key, c.label)}
-                      </div>
-                    )
-                  })}
-                  {sortedRowsSingle.map((row: any, r: number) => (
-                    <React.Fragment key={`row-${r}`}>
-                      <div className={`${s.cell} ${s.rowhead}`} role="rowheader">
-                        {r + 1}
-                      </div>
-                      {cols.map((c) => {
-                        let val: any = row?.[c.key]
-                        if (c.key === "LastDateTimeUTC") val = val ? fmtUTC(val) : ""
-                        if (
-                          c.key === "Total_Upvotes" ||
-                          c.key === "Total_Comments" ||
-                          c.key === "Subreddit_Subscribers" ||
-                          c.key === "WPI_Score"
-                        ) {
-                          const n = Number(val)
-                          val = Number.isFinite(n) ? n.toLocaleString() : (val ?? "")
-                        }
+            </div>
+          )}
+
+          {hasTop10 && compare && overlapSubs.length === 0 && (
+            <div className="py-8 text-center text-sm text-muted-foreground">No Subreddits overlap</div>
+          )}
+
+          {hasTop10 && compare && overlapSubs.length > 0 && (
+            <div className={s.tableContainer} ref={containerRef}>
+              <div className={s.excel} style={{ gridTemplateColumns: (() => {
+                const num = "48px"
+                const left = "minmax(200px, 280px)"
+                const each = "minmax(140px, 1fr)"
+                const segs: string[] = [num, left]
+                for (const _ of metrics) segs.push(each, each)
+                return segs.join(" ")
+              })(), minWidth: "860px" }} role="table" aria-label="Subreddit Performance (compare)">
+                <div className={`${s.cell} ${s.corner}`} />
+                <div className={`${s.cell} ${s.colhead}`} />
+                {metrics.map(m => (
+                  <div key={`parent-${m.key}`} className={`${s.cell} ${s.colhead}`} style={{ gridColumn: `span 2` }}>{m.label}</div>
+                ))}
+                <div className={`${s.cell} ${s.colhead}`} />
+                <div className={`${s.cell} ${s.colhead}`}>Subreddit</div>
+                {metrics.map(m => (
+                  <React.Fragment key={`subheads-${m.key}`}>
+                    <div className={`${s.cell} ${s.colhead}`} onClick={() => onHeaderClickComp(`${m.key}__u1`)} style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}>
+                      {sortKeyComp === `${m.key}__u1` ? `user1 ${sortDirComp === "desc" ? "▼" : "▲"}` : "user1"}
+                    </div>
+                    <div className={`${s.cell} ${s.colhead}`} onClick={() => onHeaderClickComp(`${m.key}__u2`)} style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}>
+                      {sortKeyComp === `${m.key}__u2` ? `user2 ${sortDirComp === "desc" ? "▼" : "▲"}` : "user2"}
+                    </div>
+                  </React.Fragment>
+                ))}
+                {sortedSubsComp.map((sub, rIndex) => {
+                  const r1 = bySub1.get(sub)
+                  const r2 = bySub2.get(sub)
+                  return (
+                    <React.Fragment key={`row-${sub}`}>
+                      <div className={`${s.cell} ${s.rowhead}`}>{rIndex + 1}</div>
+                      <div className={`${s.cell} ${s.rowhead}`} style={{ textAlign: "left", fontWeight: 600 }}>{sub}</div>
+                      {metrics.map(m => {
+                        const v1 = renderCellValue(m.key, r1)
+                        const v2 = renderCellValue(m.key, r2)
                         return (
-                          <div key={`${r}-${c.key}`} className={s.cell} role="cell" title={String(val ?? "")}>
-                            {val ?? ""}
-                          </div>
+                          <React.Fragment key={`${sub}-${m.key}`}>
+                            <div className={s.cell} role="cell" title={String(v1 ?? "")}>{v1 ?? ""}</div>
+                            <div className={s.cell} role="cell" title={String(v2 ?? "")}>{v2 ?? ""}</div>
+                          </React.Fragment>
                         )
                       })}
                     </React.Fragment>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {hasTop10 && compare && (
-            <div>
-              <div className="mb-4">
-                <p className={s.hint}>Displaying {unionSubs.length} subreddits (scroll to view all)</p>
-              </div>
-              <div className={`${s.tableContainer}`} ref={containerRef}>
-                <div
-                  className={s.excel}
-                  style={{ gridTemplateColumns: gridTemplateColumnsComp, minWidth: "860px" }}
-                  role="table"
-                  aria-label="Subreddit Performance (compare)"
-                >
-                  <div className={`${s.cell} ${s.corner}`} />
-                  <div className={`${s.cell} ${s.colhead}`} />
-                  {metrics.map(m => (
-                    <div
-                      key={`parent-${m.key}`}
-                      className={`${s.cell} ${s.colhead}`}
-                      style={{ gridColumn: `span 2` }}
-                    >
-                      {m.label}
-                    </div>
-                  ))}
-
-                  <div className={`${s.cell} ${s.colhead}`} />
-                  <div className={`${s.cell} ${s.colhead}`}>Subreddit</div>
-                  {metrics.map(m => (
-                    <React.Fragment key={`subheads-${m.key}`}>
-                      <div
-                        className={`${s.cell} ${s.colhead}`}
-                        onClick={() => onHeaderClickComp(`${m.key}__u1`)}
-                        style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}
-                      >
-                        {labelWithArrowComp(`${m.key}__u1`, "user1")}
-                      </div>
-                      <div
-                        className={`${s.cell} ${s.colhead}`}
-                        onClick={() => onHeaderClickComp(`${m.key}__u2`)}
-                        style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}
-                      >
-                        {labelWithArrowComp(`${m.key}__u2`, "user2")}
-                      </div>
-                    </React.Fragment>
-                  ))}
-
-                  {sortedSubsComp.map((sub, rIndex) => {
-                    const r1 = bySub1.get(sub)
-                    const r2 = bySub2.get(sub)
-                    return (
-                      <React.Fragment key={`row-${sub}`}>
-                        <div className={`${s.cell} ${s.rowhead}`}>{rIndex + 1}</div>
-                        <div className={`${s.cell} ${s.rowhead}`} style={{ textAlign: "left", fontWeight: 600 }}>{sub}</div>
-                        {metrics.map(m => {
-                          const v1 = renderCellValue(m.key, r1)
-                          const v2 = renderCellValue(m.key, r2)
-                          return (
-                            <React.Fragment key={`${sub}-${m.key}`}>
-                              <div className={s.cell} role="cell" title={String(v1 ?? "")}>{v1 ?? ""}</div>
-                              <div className={s.cell} role="cell" title={String(v2 ?? "")}>{v2 ?? ""}</div>
-                            </React.Fragment>
-                          )
-                        })}
-                      </React.Fragment>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div id="history" className={s.history} aria-live="polite" ref={historyRef}>
-            {files.length === 0 ? (
-              <div className={s.hint}>No files in this session yet.</div>
-            ) : (
-              files.map((f) => (
-                <div key={f.id} className={s.histrow}>
-                  <span className={s.fname} title={f.filename}>{f.filename}</span>
-                  <span className={s.flex1} />
-                  <button type="button" className={s.mini} onClick={() => handleDownload(f.id, f.filename)}>Download</button>
-                  <button type="button" className={`${s.mini} ${s.subtle}`} onClick={() => handleDelete(f.id)}>Delete</button>
-                </div>
-              ))
+          <div className="mt-4 flex items-center justify-end gap-2 flex-wrap">
+            {!compare && (
+              <>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("data", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable && inclSubs, inclPER: subsAvailable && inclPER })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
+                  Export Data to Excel
+                </button>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable, inclPER: subsAvailable && inclPER })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
+                  Export Individual Post Data to Excel
+                </button>
+              </>
+            )}
+            {compare && (
+              <>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("data", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable && inclSubs, inclPER: subsAvailable && inclPER })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
+                  Export Data to Excel (u1)
+                </button>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u1", { inclVote, inclComm, inclMed, inclSubs: subsAvailable, inclPER: subsAvailable && inclPER })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
+                  Export Individual Post Data to Excel (u1)
+                </button>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("data", "u2", { inclVote, inclComm, inclMed, inclSubs: subsAvailable && inclSubs, inclPER: subsAvailable && inclPER })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
+                  Export Data to Excel (u2)
+                </button>
+                <button type="button" className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${s.mini}`} onClick={() => onExport("raw", "u2", { inclVote, inclComm, inclMed, inclSubs: subsAvailable, inclPER: subsAvailable && inclPER })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12m0 0 4-4m-4 4-4-4" /></svg>
+                  Export Individual Post Data to Excel (u2)
+                </button>
+              </>
             )}
           </div>
-
-          {msg && <div className={`${s.alert} ${msg.type === "ok" ? s.ok : s.err}`}>{msg.text}</div>}
-
-          <p className={s.hint}>Files are stored temporarily in memory for this page session and auto-expire after ~10 minutes or when you close/reload the page.</p>
         </div>
       )}
     </div>
