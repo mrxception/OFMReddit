@@ -1,4 +1,3 @@
-// scatter-plot-section.tsx
 "use client"
 
 import React from "react"
@@ -145,9 +144,9 @@ export default function ScatterPlotSection({
     () =>
       hasSecond
         ? [
-          { label: `u/${username || "user1"}`, data: all1, color: "var(--sidebar-primary)" },
-          { label: `u/${username2 || "user2"}`, data: all2, color: "rgb(20,184,166)" },
-        ]
+            { label: `u/${username || "user1"}`, data: all1, color: "var(--sidebar-primary)" },
+            { label: `u/${username2 || "user2"}`, data: all2, color: "rgb(20,184,166)" },
+          ]
         : [{ label: `u/${username || "user"}`, data: all1, color: "var(--sidebar-primary)" }],
     [hasSecond, all1, all2, username, username2]
   )
@@ -213,8 +212,35 @@ export default function ScatterPlotSection({
         aria-expanded={isOpen}
         aria-controls="scatterplot-content"
       >
-        <h2 className="text-xl font-bold">{`Subreddit Performance: ${yLabel} vs. ${xLabel}`}</h2>
-        <svg className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <div className="flex items-center gap-2 text-xl font-bold">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            style={{ color: "var(--sidebar-primary)" }}
+          >
+            {/* axes */}
+            <path d="M3 21h18M3 21V3" />
+            {/* points */}
+            <circle cx="9" cy="15" r="1.5" fill="currentColor" />
+            <circle cx="13" cy="9" r="1.5" fill="currentColor" />
+            <circle cx="18" cy="13" r="1.5" fill="currentColor" />
+          </svg>
+          <h2 className="text-xl font-bold">{`Subreddit Performance: ${yLabel} vs. ${xLabel}`}</h2>
+        </div>
+        <svg
+          className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </header>

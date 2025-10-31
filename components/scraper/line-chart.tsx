@@ -1,7 +1,17 @@
 "use client"
 
 import React from "react"
-import { LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label } from "recharts"
+import {
+  LineChart as RLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Label,
+} from "recharts"
 
 export type TimeSeriesRow = { date: string; [series: string]: number | string | null | undefined }
 
@@ -50,7 +60,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           .slice()
           .sort((a: any, b: any) => (b?.value ?? 0) - (a?.value ?? 0))
           .map((pld: any, i: number) => (
-            <li key={i} style={{ color: pld?.color ?? "inherit" }}>{`${pld.name}: ${Number(pld.value ?? 0).toLocaleString()}`}</li>
+            <li key={i} style={{ color: pld?.color ?? "inherit" }}>
+              {`${pld.name}: ${Number(pld.value ?? 0).toLocaleString()}`}
+            </li>
           ))}
       </ul>
     </div>
@@ -67,13 +79,30 @@ export default function PerformanceLineChart({ data, seriesKeys, metricLabel, do
   if (seriesKeys[0]) colors[seriesKeys[0]] = primary
   if (seriesKeys[1]) colors[seriesKeys[1]] = TEAL
 
+  const [min, max] = domain
+  const paddedDomain: [number, number] = [
+    min,
+    Math.ceil((max || 10) * 1.05),
+  ]
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <RLineChart data={data} margin={{ top: 6, right: 24, left: 40, bottom: 6 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
         <XAxis dataKey="date" tick={{ fill: tickColor }} stroke={tickColor} tickFormatter={fmtDate} />
-        <YAxis tick={{ fill: tickColor }} stroke={tickColor} tickFormatter={(tick) => Number(tick).toLocaleString()} domain={domain} allowDataOverflow>
-          <Label value={metricLabel} angle={-90} position="insideLeft" style={{ textAnchor: "middle", fill: tickColor }} />
+        <YAxis
+          tick={{ fill: tickColor }}
+          stroke={tickColor}
+          tickFormatter={(tick) => Number(tick).toLocaleString()}
+          domain={paddedDomain}
+          allowDataOverflow
+        >
+          <Label
+            value={metricLabel}
+            angle={-90}
+            position="insideLeft"
+            style={{ textAnchor: "middle", fill: tickColor }}
+          />
         </YAxis>
         <Tooltip content={<CustomTooltip />} />
         <Legend iconSize={10} />

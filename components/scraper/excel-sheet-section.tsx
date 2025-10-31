@@ -62,7 +62,8 @@ export default function ExcelSheetSection({
   const [inclSubs, setInclSubs] = React.useState(subsAvailable ? defaults.inclSubs : false)
   const [inclPER, setInclPER] = React.useState(subsAvailable ? defaults.inclPER : false)
 
-  const nonSortableSingle = new Set(["Subreddit", "LastDateTimeUTC"])
+  // Allow sorting on LastDateTimeUTC now (remove it from non-sortable set)
+  const nonSortableSingle = new Set(["Subreddit"])
   const nonSortableCompare = new Set(["Subreddit"])
 
   const [sortKeySingle, setSortKeySingle] = React.useState<string | null>(null)
@@ -72,6 +73,28 @@ export default function ExcelSheetSection({
 
   const [colMinPx, setColMinPx] = React.useState<number[]>([])
   const [gridCols, setGridCols] = React.useState<string>("")
+
+  const [copied, setCopied] = React.useState(false)
+  const copyTimerRef = React.useRef<number | null>(null)
+  const copySubreddit = React.useCallback(async (name: string) => {
+    if (!name) return
+    try {
+      await navigator.clipboard.writeText(name)
+    } catch {
+      const ta = document.createElement("textarea")
+      ta.value = name
+      ta.style.position = "fixed"
+      ta.style.opacity = "0"
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand("copy") } catch {}
+      document.body.removeChild(ta)
+    }
+    setCopied(true)
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = window.setTimeout(() => setCopied(false), 1200)
+  }, [])
+  React.useEffect(() => () => { if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current) }, [])
 
   const cols = React.useMemo(() => {
     const list: Array<{ key: string; label: string }> = [
@@ -121,6 +144,10 @@ export default function ExcelSheetSection({
       const v = r?.[sortKeySingle as string]
       if (sortKeySingle === "Post_Frequency") return parsePostFrequency(String(v || ""))
       if (sortKeySingle === "WPI_Rating") return ratingWeight(String(v || ""))
+      if (sortKeySingle === "LastDateTimeUTC") {
+        const t = Date.parse(String(v || ""))
+        return Number.isFinite(t) ? t : -Infinity
+      }
       if (typeof v === "number") return v
       if (v == null) return -Infinity
       const num = Number(String(v).replace(/,/g, ""))
@@ -222,6 +249,10 @@ export default function ExcelSheetSection({
       const v = src ? src[metric] : null
       if (metric === "Post_Frequency") return parsePostFrequency(String(v || ""))
       if (metric === "WPI_Rating") return ratingWeight(String(v || ""))
+      if (metric === "LastDateTimeUTC") {
+        const t = Date.parse(String(v || ""))
+        return Number.isFinite(t) ? t : -Infinity
+      }
       if (typeof v === "number") return v
       if (v == null) return -Infinity
       const num = Number(String(v).replace(/,/g, ""))
@@ -335,11 +366,40 @@ export default function ExcelSheetSection({
 
   return (
     <div className="rounded-lg border border-border bg-card">
-      <header className="p-6 cursor-pointer flex justify-between items-center" onClick={() => setIsOpen(v => !v)} aria-expanded={isOpen} aria-controls="excel-content">
-        <h3 className="text-xl font-bold">
-          Subreddit Performance Table{username ? ` for u/${username}` : ""}{compare && username2 ? ` vs u/${username2}` : ""}
-        </h3>
-        <svg className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <header
+        className="p-6 cursor-pointer flex justify-between items-center"
+        onClick={() => setIsOpen(v => !v)}
+        aria-expanded={isOpen}
+        aria-controls="excel-content"
+      >
+        <div className="flex items-center gap-2 text-xl font-bold">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            style={{ color: "var(--sidebar-primary)" }}
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M9 3v18" />
+          </svg>
+          <h3 className="text-xl font-bold">
+            Subreddit Performance Table{username ? ` for u/${username}` : ""}{compare && username2 ? ` vs u/${username2}` : ""}
+          </h3>
+        </div>
+        <svg
+          className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </header>
@@ -402,8 +462,18 @@ export default function ExcelSheetSection({
                         const n = Number(val)
                         val = Number.isFinite(n) ? Math.round(n).toLocaleString() : (val ?? "")
                       }
+                      const isSub = c.key === "Subreddit"
                       return (
-                        <div key={`${r}-${c.key}`} className={s.cell} role="cell" title={String(val ?? "")}>{val ?? ""}</div>
+                        <div
+                          key={`${r}-${c.key}`}
+                          className={`${s.cell} ${isSub ? "cursor-pointer select-none" : ""}`}
+                          role="cell"
+                          title={isSub ? "Click to copy subreddit" : String(val ?? "")}
+                          onClick={isSub ? () => copySubreddit(String(val ?? "")) : undefined}
+                          aria-label={isSub ? `Copy subreddit ${String(val ?? "")}` : undefined}
+                        >
+                          {val ?? ""}
+                        </div>
                       )
                     })}
                   </React.Fragment>
@@ -449,7 +519,15 @@ export default function ExcelSheetSection({
                   return (
                     <React.Fragment key={`row-${sub}`}>
                       <div className={`${s.cell} ${s.rowhead}`}>{rIndex + 1}</div>
-                      <div className={`${s.cell} ${s.rowhead}`} style={{ textAlign: "left", fontWeight: 600 }}>{sub}</div>
+                      <div
+                        className={`${s.cell} ${s.rowhead} cursor-pointer select-none`}
+                        style={{ textAlign: "left", fontWeight: 600 }}
+                        title="Click to copy subreddit"
+                        onClick={() => copySubreddit(sub)}
+                        aria-label={`Copy subreddit ${sub}`}
+                      >
+                        {sub}
+                      </div>
                       {metrics.map(m => {
                         const v1 = renderCellValue(m.key, r1)
                         const v2 = renderCellValue(m.key, r2)
@@ -501,6 +579,16 @@ export default function ExcelSheetSection({
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {copied && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-md bg-foreground text-background px-3 py-2 text-sm shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          Subreddit copied!
         </div>
       )}
     </div>
