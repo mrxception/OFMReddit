@@ -1,10 +1,11 @@
 "use client"
 
-import React, { useCallback, useMemo, useState } from "react"
+import React, { useCallback, useMemo, useState, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import * as XLSX from "xlsx"
 import PostingPlanner from "@/components/post-planner/posting-planner"
 import s from "@/styles/scraper.module.css"
+import { loadScrape } from "@/lib/session-cache"
 
 type PostRow = {
   subreddit: string
@@ -48,6 +49,24 @@ const HEADER_MAPPING: Record<string, keyof PostRow> = {
 export default function FileUpload() {
   const [errorMessage, setErrorMessage] = useState<string>("")
   const [data, setData] = useState<PostData[] | null>(null)
+  const [meta, setMeta] = useState<{ username: string; username2: string } | null>(null)
+
+  useEffect(() => {
+    const cached = loadScrape()
+    if (cached && Array.isArray(cached.rawRows) && cached.rawRows.length) {
+      const mapped: PostData[] = cached.rawRows.map((r: any) => ({
+        subreddit: String(r?.Subreddit ?? "").trim(),
+        upvotes: Number(r?.Upvotes ?? 0),
+        comments: Number(r?.Comments ?? 0),
+        subscribers: typeof r?.Subreddit_Subscribers === "number" ? r.Subreddit_Subscribers : 0,
+        post_date_utc: r?.LastDate
+      }))
+      if (mapped.length) {
+        setData(mapped)
+        setMeta({ username: cached.username || "", username2: cached.username2 || "" })
+      }
+    }
+  }, [])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -65,19 +84,15 @@ export default function FileUpload() {
         const ws = wb.Sheets[sheetName]
         const json: any[] = XLSX.utils.sheet_to_json(ws, { raw: true, defval: "" })
         if (!json.length) throw new Error("The uploaded file is empty or invalid.")
-
         const mappedHeaders: Record<string, keyof PostRow> = {}
         Object.keys(json[0]).forEach(raw => {
           const norm = normalizeHeader(raw)
           if (HEADER_MAPPING[norm]) mappedHeaders[raw] = HEADER_MAPPING[norm]
         })
-
-        // Required columns (subscribers is optional)
         const required: (keyof PostRow)[] = ["subreddit", "upvotes", "comments", "post_date_utc"]
         const found = new Set(Object.values(mappedHeaders))
         const missing = required.filter(k => !found.has(k))
         if (missing.length) throw new Error(`Missing required columns: ${missing.join(", ")}`)
-
         const parsed: PostRow[] = json.map(row => {
           const o: any = {}
           for (const rawKey in row) {
@@ -92,17 +107,15 @@ export default function FileUpload() {
           }
           return o as PostRow
         })
-
         const posts: PostData[] = parsed.map(r => ({
           subreddit: String(r.subreddit ?? "").trim(),
           upvotes: Number(r.upvotes ?? 0),
           comments: Number(r.comments ?? 0),
-          // If subscribers is missing, leave undefined (or set to 0 if your planner needs it)
           subscribers: typeof r.subscribers === "number" ? r.subscribers : 0,
           post_date_utc: r.post_date_utc
         }))
-
         setData(posts)
+        setMeta(null)
       } catch (err: any) {
         setErrorMessage(err?.message || "Failed to process file.")
         setData(null)
@@ -121,9 +134,40 @@ export default function FileUpload() {
     multiple: false,
   })
 
+  const useLatest = () => {
+    const cached = loadScrape()
+    if (cached && Array.isArray(cached.rawRows) && cached.rawRows.length) {
+      const mapped: PostData[] = cached.rawRows.map((r: any) => ({
+        subreddit: String(r?.Subreddit ?? "").trim(),
+        upvotes: Number(r?.Upvotes ?? 0),
+        comments: Number(r?.Comments ?? 0),
+        subscribers: typeof r?.Subreddit_Subscribers === "number" ? r.Subreddit_Subscribers : 0,
+        post_date_utc: r?.LastDate
+      }))
+      if (mapped.length) {
+        setData(mapped)
+        setMeta({ username: cached.username || "", username2: cached.username2 || "" })
+      }
+    }
+  }
+
+  const clearPlanner = () => {
+    setData(null)
+    setMeta(null)
+  }
+
   const uploader = useMemo(() => (
-    <div className={`min-h-screen bg-background p-4 md:p-6 ${s.bgPattern}`}>
+    <div className={`min-h-screen bg-background ${s.bgPattern}`}>
       <div className="max-w-3xl mx-auto md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm text-muted-foreground">
+            {meta && meta.username ? `Using latest scrape: ${meta.username}${meta.username2 ? " vs " + meta.username2 : ""}` : "No latest scrape loaded"}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={useLatest} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">Use latest scrape</button>
+            <button onClick={clearPlanner} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">Clear planner</button>
+          </div>
+        </div>
         <div className="rounded-lg border border-border bg-card p-6 mb-6">
           <h1 className="text-xl font-semibold text-foreground mb-2">Upload Post Data</h1>
           <p className="text-sm text-muted-foreground mb-4">Upload the exported XLSX to build your posting plan.</p>
@@ -145,18 +189,32 @@ export default function FileUpload() {
           </div>
           {errorMessage && <p className="mt-4 text-sm text-destructive">{errorMessage}</p>}
         </div>
-
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-lg md:text-xl font-semibold text-foreground mb-2">Welcome!</h2>
           <p className="text-sm md:text-base text-muted-foreground">
-            Required headers: <strong>Subreddit</strong>, <strong>Upvotes</strong>, <strong>Comments</strong>, and <strong>Last Post Date (UTC)</strong>.
-            The <strong>Subreddit Subscribers</strong> column is <em>optional</em>.
+            Required headers: <strong>Subreddit</strong>, <strong>Upvotes</strong>, <strong>Comments</strong>, and <strong>Last Post Date (UTC)</strong>. The <strong>Subreddit Subscribers</strong> column is <em>optional</em>.
           </p>
         </div>
       </div>
     </div>
-  ), [getRootProps, getInputProps, isDragActive, errorMessage])
+  ), [getRootProps, getInputProps, isDragActive, errorMessage, meta])
 
   if (!data) return uploader
-  return <PostingPlanner rawPosts={data} />
+
+  return (
+      <div className={`min-h-screen bg-background ${s.bgPattern}`}>
+        <div className="max-w-3xl mx-auto md:p-6">
+          <div className="flex items-center justify-between -mb-4">
+            <div className="text-sm text-muted-foreground">
+              {meta && meta.username ? `Using latest scrape: ${meta.username}${meta.username2 ? " vs " + meta.username2 : ""}` : "Loaded file"}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={useLatest} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">Use latest scrape</button>
+              <button onClick={clearPlanner} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">Clear planner</button>
+            </div>
+          </div>
+        </div>
+        <PostingPlanner rawPosts={data} />
+      </div>
+  )
 }
