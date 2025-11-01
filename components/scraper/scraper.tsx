@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import React from "react"
 import s from "@/styles/scraper.module.css"
+import { saveScrape, loadScrape } from "@/lib/session-cache"
 
 import Form from "./form"
 import ExcelSheetSection from "./excel-sheet-section"
@@ -89,6 +90,24 @@ export default function Scraper() {
       bar.setAttribute("aria-valuenow", String(Math.round(clamped * 100)))
     }
   }
+
+  useEffect(() => {
+    const cached = loadScrape()
+    if (cached) {
+      setPreview(Array.isArray(cached.preview) ? cached.preview : [])
+      setPreview2(Array.isArray(cached.preview2) ? cached.preview2 : null)
+      setRawRows(Array.isArray(cached.rawRows) ? cached.rawRows : null)
+      setRunDefaults(cached.runDefaults || { inclVote: false, inclComm: false, inclMed: false, inclSubs: false, inclPER: false })
+      setUsername(cached.username || "")
+      setUsername2(cached.username2 || "")
+      setRunUsername(cached.username || "")
+      setRunUsername2(cached.username2 || "")
+      setDateRange(cached.dateRange || "all")
+      setLimit(typeof cached.limit === "number" ? cached.limit : 100)
+      setRunLimit(typeof cached.limit === "number" ? cached.limit : 100)
+      setStatus("Ready.")
+    }
+  }, [])
 
   useEffect(() => {
     const cleanup = () => {
@@ -209,6 +228,18 @@ export default function Scraper() {
       setTimeSeries(payload.timeSeries ?? null)
       setTimeSeries2(payload.timeSeries2 ?? null)
       setSpanDays(typeof payload.datasetSpanDays === "number" && isFinite(payload.datasetSpanDays) ? payload.datasetSpanDays : null)
+
+      saveScrape({
+        username: frozen1,
+        username2: frozen2,
+        dateRange,
+        limit,
+        runDefaults: { inclVote, inclComm, inclMed, inclSubs, inclPER: inclSubs ? inclPER : false },
+        preview: Array.isArray(payload.preview) ? payload.preview : [],
+        preview2: Array.isArray(payload.preview2) ? payload.preview2 : null,
+        rawRows: Array.isArray(payload.rawRows) ? payload.rawRows : null,
+        ts: Date.now()
+      })
 
       setProgress(1)
       setStatus("Ready.")
