@@ -53,7 +53,7 @@ export async function POST(req: Request) {
             }
 
             if (feature === "scraper") {
-                const cool = await assertCooldown(userId, "scraper", 30)
+                const cool = await assertCooldown(userId, "scraper", 0)
                 if (!cool.ok) {
                     return NextResponse.json({ error: `Scrape cooldown. Try again in ~${cool.wait} min.` }, { status: 429 })
                 }
