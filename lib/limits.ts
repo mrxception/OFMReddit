@@ -74,6 +74,40 @@ export async function assertWithinLimits(userId: number, feature: Feature): Prom
   return { ok: true }
 }
 
+async function getCooldownWaitFromDB(userId: number, feature: Feature, cooldownMinutes: number): Promise<number> {
+  const sql = `
+    SELECT
+      CEIL(
+        GREATEST(
+          0,
+          TIMESTAMPDIFF(
+            SECOND,
+            NOW(),
+            DATE_ADD(occurred_at, INTERVAL ? MINUTE)
+          ) / 60
+        )
+      ) AS wait
+    FROM feature_usage
+    WHERE user_id = ?
+      AND feature = ?
+    ORDER BY occurred_at DESC
+    LIMIT 1
+  `
+  const row = await queryOne<{ wait: number }>(sql, [cooldownMinutes, userId, feature])
+  return Number(row?.wait ?? 0)
+}
+
+export async function assertCooldown(
+  userId: number,
+  feature: Feature,
+  cooldownMinutes: number
+): Promise<AssertOk | Cooldown> {
+  const wait = await getCooldownWaitFromDB(userId, feature, cooldownMinutes)
+  if (wait > 0) return { ok: false, code: "COOLDOWN", wait }
+  return { ok: true }
+}
+
+/*
 export async function assertCooldown(userId: number, feature: Feature, cooldownMinutes: number): Promise<AssertOk | Cooldown> {
   const last = await getLastUse(userId, feature)
   if (!last) return { ok: true }
@@ -81,6 +115,7 @@ export async function assertCooldown(userId: number, feature: Feature, cooldownM
   if (wait > 0) return { ok: false, code: "COOLDOWN", wait }
   return { ok: true }
 }
+*/
 
 export async function recordUsage(userId: number, feature: Feature, meta?: any): Promise<void> {
   const sql = `
