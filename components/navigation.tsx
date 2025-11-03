@@ -91,7 +91,20 @@ export default function Navigation() {
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-1">
-            <Link href="/" className="flex items-center gap-2 mr-4">
+            {user && (
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden order-first p-2 rounded-lg hover:bg-muted transition-colors"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            )}
+
+            <Link
+              href="/"
+              className="flex items-center gap-2 mr-4 order-last md:order-none"
+            >
               <span className="text-xl font-bold text-foreground">OFMReddit</span>
             </Link>
 
@@ -99,58 +112,49 @@ export default function Navigation() {
               <>
                 <Link
                   href="/scraper"
-                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${
-                    pathname === "/scraper"
+                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/scraper"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
+                    }`}
                 >
                   Performance Analysis
                 </Link>
                 <Link
                   href="/post-planner"
-                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${
-                    pathname === "/post-planner"
+                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/post-planner"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
+                    }`}
                 >
-                 Post Planner
-                </Link>
-                <Link
-                  href="/caption-generator"
-                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${
-                    pathname === "/caption-generator"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Caption Generator
+                  Post Planner
                 </Link>
                 {user.isAdmin ? (
-                  <Link
-                    href="/admin"
-                    className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      pathname === "/admin"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <Shield className="w-4 h-4" />
-                    Admin
-                  </Link>
+                  <>
+                    <Link
+                      href="/caption-generator"
+                      className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/caption-generator"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                    >
+                      Caption Generator
+                    </Link>
+                    <Link
+                      href="/admin"
+                      className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/admin"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                    >
+                      <Shield className="w-4 h-4" />
+                      Admin
+                    </Link>
+                  </>
                 ) : null}
-
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
-                  aria-label="Toggle menu"
-                >
-                  {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </button>
               </>
             )}
           </div>
+
 
           <div className="flex items-center gap-4">
             {mounted && (
@@ -197,60 +201,48 @@ export default function Navigation() {
             <Link
               href="/scraper"
               onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${
-                pathname === "/scraper"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/scraper"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
             >
               Performance Analysis
             </Link>
             <Link
               href="/post-planner"
               onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${
-                pathname === "/post-planner"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/post-planner"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
             >
               Post Planner
             </Link>
-            <Link
-              href="/caption-generator"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${
-                pathname === "/caption-generator"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              Caption Generator
-            </Link>
-            <Link
-              href="/post-planner"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-2 rounded-lg font-medium transition-colors ${
-                pathname === "/post-planner"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              Post Planner
-            </Link>
+
             {user.isAdmin ? (
-              <Link
-                href="/admin"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  pathname === "/admin"
+              <>
+                <Link
+                  href="/caption-generator"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/caption-generator"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <Shield className="w-4 h-4" />
-                Admin
-              </Link>
+                    }`}
+                >
+                  Caption Generator
+                </Link>
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/admin"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                >
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </Link>
+              </>
             ) : null}
             <div className="px-4 py-2 text-sm text-muted-foreground border-t border-border mt-2 pt-4">{user.email}</div>
           </div>
