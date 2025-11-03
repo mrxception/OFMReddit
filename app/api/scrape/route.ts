@@ -29,7 +29,7 @@ async function getAccessToken(): Promise<string> {
   const response = await fetch("https://www.reddit.com/api/v1/access_token", {
     method: "POST",
     headers: { Authorization: `Basic ${authString}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": userAgent },
-    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }).toString(),
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }).toString()
   })
   if (!response.ok) throw new Error(`Failed to obtain access token: ${response.status} ${response.statusText}`)
   const data = (await response.json()) as RedditTokenResponse
@@ -38,8 +38,7 @@ async function getAccessToken(): Promise<string> {
 }
 
 const SUBS_TTL = 6 * 60 * 60 * 1000
-const SUBS_CACHE: Map<string, { v: number; t: number }> =
-  (globalThis as any).__SUBS_CACHE__ ?? ((globalThis as any).__SUBS_CACHE__ = new Map())
+const SUBS_CACHE: Map<string, { v: number; t: number }> = (globalThis as any).__SUBS_CACHE__ ?? ((globalThis as any).__SUBS_CACHE__ = new Map())
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 let subCounts: Map<string, number> | undefined
@@ -82,58 +81,33 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const {
-      username,
-      username2,
-      limit = 1000,
-      inclSubs = 0,
-      inclVote = 0,
-      inclComm = 0,
-      inclPER = 0,
-      inclMed = 0,
-      sid,
-      dateRange = "all",
-      exportType,
-      targetUser,
-    } = body
+    const { username, username2, limit = 1000, inclSubs = 0, inclVote = 0, inclComm = 0, inclPER = 0, inclMed = 0, sid, dateRange = "all", exportType, targetUser } = body
+
+    const usageUrl = new URL("/api/usage", request.url).toString()
+    const pre = await fetch(usageUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: request.headers.get("cookie") || "",
+        authorization: request.headers.get("authorization") || ""
+      },
+      body: JSON.stringify({ feature: "scraper", op: "check" })
+    })
+    if (!pre.ok) {
+      const j = await pre.json().catch(() => ({}))
+      return NextResponse.json({ error: j?.error || "Not allowed" }, { status: pre.status })
+    }
 
     if (exportType) {
       const user = targetUser === "u2" ? String(username2 || "").trim() : String(username || "").trim()
       if (!user) return NextResponse.json({ error: "Username is required" }, { status: 400 })
-      const processed = await processUser(user, {
-        limit,
-        dateRange,
-        inclSubs,
-        inclVote,
-        inclComm,
-        inclPER,
-        inclMed,
-        sid: sid || `exp_${Date.now()}`,
-        track: false,
-      })
+      const processed = await processUser(user, { limit, dateRange, inclSubs, inclVote, inclComm, inclPER, inclMed, sid: sid || `exp_${Date.now()}`, track: false })
       if (exportType === "data") {
-        const { buffer, filename } = await buildWorkbook(processed.subredditStats as SubredditRow[], {
-          username: user,
-          inclMed,
-          inclVote,
-          inclComm,
-          inclSubs,
-          inclPER,
-        })
-        return new NextResponse(new Uint8Array(buffer), {
-          headers: {
-            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "Content-Disposition": `attachment; filename="${filename}"`,
-          },
-        })
+        const { buffer, filename } = await buildWorkbook(processed.subredditStats as SubredditRow[], { username: user, inclMed, inclVote, inclComm, inclSubs, inclPER })
+        return new NextResponse(new Uint8Array(buffer), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${filename}"` } })
       } else if (exportType === "raw") {
         const { buffer, filename } = await buildRawWorkbook(processed.rawRows, user, { inclSubs: !!inclSubs })
-        return new NextResponse(new Uint8Array(buffer), {
-          headers: {
-            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "Content-Disposition": `attachment; filename="${filename}"`,
-          },
-        })
+        return new NextResponse(new Uint8Array(buffer), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${filename}"` } })
       }
       return NextResponse.json({ error: "Invalid export type" }, { status: 400 })
     }
@@ -149,6 +123,16 @@ export async function POST(request: NextRequest) {
 
     sessions.set(sid, { phase: "Complete", fetched: result1.subredditStats.length, total: result1.subredditStats.length, done: true })
 
+    await fetch(usageUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: request.headers.get("cookie") || "",
+        authorization: request.headers.get("authorization") || ""
+      },
+      body: JSON.stringify({ feature: "scraper", op: "record", meta: { username: String(username || "").trim(), username2: String(username2 || "").trim(), dateRange, limit } })
+    }).catch(() => {})
+
     return NextResponse.json({
       datasetSpanDays: result1.datasetSpanDays,
       previewTop10: result1.previewTop10,
@@ -157,7 +141,7 @@ export async function POST(request: NextRequest) {
       timeSeries: result1.timeSeries,
       timeSeries2: result2 ? result2.timeSeries : undefined,
       rawRows: result1.rawRows,
-      rawRows2: result2 ? result2.rawRows : undefined,
+      rawRows2: result2 ? result2.rawRows : undefined
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
@@ -182,10 +166,10 @@ async function processUser(
   const cutoffSecs =
     toDateRangeCutoff(
       opts.dateRange === "all" ? "all" :
-        opts.dateRange === "7" ? 7 :
-          opts.dateRange === "30" ? 30 :
-            opts.dateRange === "60" ? 60 :
-              opts.dateRange === "90" ? 90 : "all"
+      opts.dateRange === "7" ? 7 :
+      opts.dateRange === "30" ? 30 :
+      opts.dateRange === "60" ? 60 :
+      opts.dateRange === "90" ? 90 : "all"
     )
 
   if (opts.track) sessions.set(opts.sid, { phase: `Fetching posts of ${u}…`, fetched: 0, total: maxLimit, done: false })
@@ -280,7 +264,7 @@ async function processUser(
       Min_Upvotes: Math.round(minU),
       Q1_Upvotes: Math.round(q1U),
       Q3_Upvotes: Math.round(q3U),
-      Max_Upvotes: Math.round(maxU),
+      Max_Upvotes: Math.round(maxU)
     }
   })
 
@@ -299,12 +283,8 @@ async function processUser(
     const sum = (a: any[], f: (x: any) => number) => a.reduce((t, x) => t + (Number(f(x)) || 0), 0)
     const totalPostsAll = Math.max(1, sum(subredditStats, (r) => r.Total_Posts || 0))
     const useMedian = !!opts.inclMed
-    const wAvgUp = (opts.inclVote
-      ? sum(subredditStats, (r) => r.Total_Upvotes || 0) / totalPostsAll
-      : sum(subredditStats, (r) => (useMedian ? (r.Median_Upvotes || 0) : (r.Avg_Upvotes_Per_Post || 0)) * (r.Total_Posts || 0)) / totalPostsAll)
-    const wAvgComm = (opts.inclComm
-      ? sum(subredditStats, (r) => r.Total_Comments || 0) / totalPostsAll
-      : sum(subredditStats, (r) => (r.Avg_Comments_Per_Post || 0) * (r.Total_Posts || 0)) / totalPostsAll)
+    const wAvgUp = (opts.inclVote ? sum(subredditStats, (r) => r.Total_Upvotes || 0) / totalPostsAll : sum(subredditStats, (r) => (useMedian ? (r.Median_Upvotes || 0) : (r.Avg_Upvotes_Per_Post || 0)) * (r.Total_Posts || 0)) / totalPostsAll)
+    const wAvgComm = (opts.inclComm ? sum(subredditStats, (r) => r.Total_Comments || 0) / totalPostsAll : sum(subredditStats, (r) => (r.Avg_Comments_Per_Post || 0) * (r.Total_Posts || 0)) / totalPostsAll)
     const avgPostsPerSub = subredditStats.length ? totalPostsAll / subredditStats.length : 0
     const subsScale = 10000
     const scoreOf = (row: any) => {
@@ -344,7 +324,7 @@ async function processUser(
     Upvotes: p.data.score,
     Comments: p.data.num_comments,
     Subreddit_Subscribers: subCounts?.get(p.data.subreddit) ?? 0,
-    LastDate: toExcelUTCDate(p.data.created_utc),
+    LastDate: toExcelUTCDate(p.data.created_utc)
   }))
 
   const byDay = new Map<string, Map<string, { upSum: number; upCnt: number; comSum: number; comCnt: number }>>()
@@ -387,6 +367,6 @@ async function processUser(
     previewTop10,
     subredditStats,
     rawRows,
-    timeSeries: { upvotes: tsUpvotes, comments: tsComments, subreddits: subsAll },
+    timeSeries: { upvotes: tsUpvotes, comments: tsComments, subreddits: subsAll }
   }
 }

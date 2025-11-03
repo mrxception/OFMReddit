@@ -1,0 +1,103 @@
+import { NextResponse } from "next/server"
+import { verifyToken } from "@/lib/auth"
+import { queryOne } from "@/lib/db"
+import { assertWithinLimits, assertCooldown, recordUsage, listSavedScrapes, loadSavedScrape, saveSnapshotWithPrune, deleteSaved } from "@/lib/limits"
+
+function tokenFromReq(req: Request): string | null {
+    const h = req.headers.get("authorization") || ""
+    const m = /^Bearer\s+(.+)$/i.exec(h)
+    if (m?.[1]) return m[1]
+    const ck = req.headers.get("cookie") || ""
+    const part = ck.split(";").map(s => s.trim()).find(s => s.startsWith("token="))
+    return part ? decodeURIComponent(part.split("=").slice(1).join("=")) : null
+}
+
+export async function POST(req: Request) {
+    try {
+        const body = await req.json()
+        const feature = body?.feature
+        const op = body?.op
+        const meta = body?.meta
+        if (!feature || !["scraper", "post_planner", "caption_gen"].includes(feature)) {
+            return NextResponse.json({ error: "Invalid feature" }, { status: 400 })
+        }
+
+        const tok = tokenFromReq(req)
+        if (!tok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        const me = verifyToken(tok)
+        const userId = (me as any)?.userId ?? (me as any)?.id
+        if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+        if (op === "check") {
+            const sub = await queryOne<{ tier_id: number }>(
+                `SELECT tier_id FROM user_subscriptions 
+         WHERE user_id = ? 
+         AND (ends_at IS NULL OR ends_at > NOW()) 
+         ORDER BY created_at DESC LIMIT 1`,
+                [userId]
+            )
+
+            if (!sub || sub.tier_id === 1) {
+                return NextResponse.json({ error: "No active subscription." }, { status: 403 })
+            }
+
+            const within = await assertWithinLimits(userId, feature)
+            if (!within.ok) {
+                const anyWithin: any = within
+                if (anyWithin.code === "WEEKLY_LIMIT") {
+                    return NextResponse.json(
+                        { error: `Weekly ${feature.replace("_", " ")} limit reached (${anyWithin.cap} uses per week).` },
+                        { status: 429 }
+                    )
+                }
+            }
+
+            if (feature === "scraper") {
+                const cool = await assertCooldown(userId, "scraper", 30)
+                if (!cool.ok) {
+                    return NextResponse.json({ error: `Scrape cooldown. Try again in ~${cool.wait} min.` }, { status: 429 })
+                }
+            }
+
+            return NextResponse.json({ ok: true })
+        }
+
+        if (op === "record") {
+            await recordUsage(userId, feature, meta || null)
+            return NextResponse.json({ ok: true })
+        }
+
+        if (feature === "scraper" && op === "list_saved") {
+            const items = await listSavedScrapes(userId)
+            return NextResponse.json({ items })
+        }
+
+        if (feature === "scraper" && op === "load_saved") {
+            const username = String(body?.username || "")
+            if (!username) return NextResponse.json({ error: "Username required" }, { status: 400 })
+            const payloadRaw = await loadSavedScrape(userId, username)
+            if (!payloadRaw) return NextResponse.json({ error: "Not found" }, { status: 404 })
+            const payload = typeof payloadRaw === "string" ? JSON.parse(payloadRaw) : payloadRaw
+            return NextResponse.json({ payload })
+        }
+
+        if (feature === "scraper" && op === "save_snapshot") {
+            const username = String(body?.username || "")
+            if (!username) return NextResponse.json({ error: "Username required" }, { status: 400 })
+            const items = await saveSnapshotWithPrune(userId, username, body?.payload ?? {})
+            return NextResponse.json({ ok: true, items })
+        }
+
+        if (feature === "scraper" && op === "delete_saved") {
+            const username = String(body?.username || "")
+            if (!username) return NextResponse.json({ error: "Username required" }, { status: 400 })
+            await deleteSaved(userId, username)
+            const items = await listSavedScrapes(userId)
+            return NextResponse.json({ ok: true, items })
+        }
+
+        return NextResponse.json({ error: "Invalid op" }, { status: 400 })
+    } catch (e: any) {
+        return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 })
+    }
+}

@@ -7,6 +7,8 @@ import { useToast } from "@/hooks/use-toast"
 import { PromptsTab } from "@/components/admin/prompts-tab"
 import { UsersTab } from "@/components/admin/users-tab"
 import { CopiedCaptionsTab } from "@/components/admin/copied-captions-tab"
+import { UserSubscriptionTab } from "@/components/admin/user-subscription-tab"
+import { SubscriptionTierTab } from "@/components/admin/subscription-tier-tab"
 
 type Prompt = {
   id: number
@@ -451,9 +453,11 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="prompts" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+          <TabsList className="grid w-full grid-cols-5 lg:w-[980px]">
             <TabsTrigger value="prompts">Prompts & Docs</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="subscriptions">User Subscription</TabsTrigger>
+            <TabsTrigger value="tiers">Subscription Tier</TabsTrigger>
             <TabsTrigger value="analytics">Copied Captions</TabsTrigger>
           </TabsList>
 
@@ -478,6 +482,14 @@ export default function AdminPage() {
               onDeleteUser={handleDeleteUser}
               disabled={isSaving || uploadingFile}
             />
+          </TabsContent>
+
+          <TabsContent value="subscriptions" className="space-y-4">
+            <UserSubscriptionTab />
+          </TabsContent>
+
+          <TabsContent value="tiers" className="space-y-4">
+            <SubscriptionTierTab />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-4">
