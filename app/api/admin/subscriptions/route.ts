@@ -16,7 +16,6 @@ export async function GET() {
      JOIN subscription_tiers st ON us.tier_id = st.id
      ORDER BY us.id ASC`
   )
-
   return NextResponse.json({ subscriptions })
 }
 
@@ -25,6 +24,8 @@ export async function PUT(req: Request) {
   if (!userId || !tierId || !starts_at) {
     return NextResponse.json({ error: "Missing userId, tierId, or start date" }, { status: 400 })
   }
+
+  await new Promise((r) => setTimeout(r, 900))
 
   const existing = await queryOne(
     `SELECT id 
