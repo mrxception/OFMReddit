@@ -1,16 +1,25 @@
 "use client";
 
 export type ScrapeSnapshot = {
-  username: string;
-  username2: string;
-  dateRange: string;
-  limit: number;
-  runDefaults: { inclVote: boolean; inclComm: boolean; inclMed: boolean; inclSubs: boolean; inclPER: boolean };
-  preview: any[];
-  preview2: any[] | null;
-  rawRows: any[] | null;
-  ts: number;
-};
+  username: string
+  username2?: string
+  dateRange: string
+  limit: number
+  runDefaults: {
+    inclVote: boolean
+    inclComm: boolean
+    inclMed: boolean
+    inclSubs: boolean
+    inclPER: boolean
+  }
+  preview: any[]
+  preview2?: any[] | null
+  rawRows?: any[] | null
+  rawRows2?: any[] | null
+  timeSeries?: any | null
+  timeSeries2?: any | null
+  ts: number
+}
 
 const KEY = "ofmreddit:latest-scrape";
 
