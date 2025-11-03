@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select2"
 import s from "@/styles/scraper.module.css"
+import a from "@/styles/admin.module.css"
 
 type User = { id: number; email: string }
 type Subscription = { id: number; user_id: number; tier_id: number; starts_at: string | null; ends_at: string | null }
@@ -14,8 +15,8 @@ export function UserSubscriptionTab() {
   const [subs, setSubs] = useState<Subscription[]>([])
   const [tiers, setTiers] = useState<Tier[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState<Record<number, boolean>>({})
 
-  // floating banner state (same behavior as excel-sheet-section)
   const [banner, setBanner] = useState<{ text: string; kind: "ok" | "err" } | null>(null)
   const bannerTimerRef = useRef<number | null>(null)
   const showBanner = (text: string, kind: "ok" | "err" = "ok") => {
@@ -64,20 +65,25 @@ export function UserSubscriptionTab() {
   const save = async (userId: number, tierId: number | null, start: string | null, end: string | null) => {
     const token = localStorage.getItem("token")
     if (!token) return
-    const res = await fetch("/api/admin/subscriptions", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ userId, tierId, starts_at: start, ends_at: end })
-    })
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({}))
-      const msg = e.error || "Failed to save subscription"
-      toast({ title: "Error", description: msg, variant: "destructive", duration: 2000 })
-      showBanner(msg, "err")
-      return
+    setSaving(prev => ({ ...prev, [userId]: true }))
+    try {
+      const res = await fetch("/api/admin/subscriptions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId, tierId, starts_at: start, ends_at: end })
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        const msg = e.error || "Failed to save subscription"
+        toast({ title: "Error", description: msg, variant: "destructive", duration: 2000 })
+        showBanner(msg, "err")
+        return
+      }
+      toast({ title: "Saved", description: "Subscription updated", duration: 2000 })
+      showBanner("Subscription updated!", "ok")
+    } finally {
+      setSaving(prev => ({ ...prev, [userId]: false }))
     }
-    toast({ title: "Saved", description: "Subscription updated", duration: 2000 })
-    showBanner("Subscription updated!", "ok")
   }
 
   if (loading) return <div className="text-sm text-muted-foreground">Loading…</div>
@@ -99,6 +105,7 @@ export function UserSubscriptionTab() {
           <tbody>
             {users.map(u => {
               const row = rows[u.id] || { start: "", end: "", tierId: tiers[0]?.id ?? null }
+              const isSaving = !!saving[u.id]
               return (
                 <tr key={u.id} className="border-t border-border/60">
                   <td className="p-3">
@@ -125,7 +132,7 @@ export function UserSubscriptionTab() {
                   <td className="p-3">
                     <input
                       type="date"
-                      className="w-full rounded-md border border-border bg-background px-3 py-2"
+                      className={`${a.date} w-full rounded-md border border-border bg-background px-3 py-2 date-icon-tinted`}
                       value={row.start}
                       onChange={e => setRows(prev => ({ ...prev, [u.id]: { ...row, start: e.target.value } }))}
                     />
@@ -133,17 +140,19 @@ export function UserSubscriptionTab() {
                   <td className="p-3">
                     <input
                       type="date"
-                      className="w-full rounded-md border border-border bg-background px-3 py-2"
+                      className={`${a.date} w-full rounded-md border border-border bg-background px-3 py-2 date-icon-tinted`}
                       value={row.end}
                       onChange={e => setRows(prev => ({ ...prev, [u.id]: { ...row, end: e.target.value } }))}
                     />
                   </td>
                   <td className="p-3">
                     <button
-                      className="w-full rounded-md bg-primary text-primary-foreground px-3 py-2 hover:opacity-90"
+                      className="w-full rounded-md bg-primary text-primary-foreground px-3 py-2 hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                       onClick={() => save(u.id, row.tierId, row.start || null, row.end || null)}
+                      disabled={isSaving}
+                      aria-busy={isSaving}
                     >
-                      Save
+                      {isSaving ? "Saving…" : "Save"}
                     </button>
                   </td>
                 </tr>
