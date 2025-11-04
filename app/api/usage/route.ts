@@ -29,8 +29,8 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
         if (op === "check") {
-            const sub = await queryOne<{ tier_id: number }>(
-                `SELECT tier_id FROM user_subscriptions 
+            const sub = await queryOne<{ tier_id: number; cooldown: string }>(
+                `SELECT tier_id, cooldown FROM user_subscriptions 
          WHERE user_id = ? 
          AND (ends_at IS NULL OR ends_at > NOW()) 
          ORDER BY created_at DESC LIMIT 1`,
@@ -53,7 +53,8 @@ export async function POST(req: Request) {
             }
 
             if (feature === "scraper") {
-                const cool = await assertCooldown(userId, "scraper", 0)
+                const coolMinutes = Number(sub?.cooldown ?? 0)
+                const cool = await assertCooldown(userId, "scraper", isNaN(coolMinutes) ? 30 : coolMinutes)
                 if (!cool.ok) {
                     return NextResponse.json({ error: `Scrape cooldown. Try again in ~${cool.wait} min.` }, { status: 429 })
                 }

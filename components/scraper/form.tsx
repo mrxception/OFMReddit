@@ -235,7 +235,7 @@ export default function Form(props: FormProps) {
                             <div key={item.id} className={s.histrow}>
                                 <div className={s.flex1}>
                                     <div className={s.fname}>{item.username}</div>
-                                    <div className={s.hint}>{new Date(item.scraped_at).toLocaleString()}</div>
+                                    <div className={s.hint} style={{ fontSize: '0.8rem',marginTop : '-0.5px' }}>{new Date(item.scraped_at).toLocaleString()}</div>
                                 </div>
                                 <button type="button" className={s.mini} onClick={() => onLoadSaved(item.username)}>Load</button>
                                 <button type="button" className={s.mini} onClick={() => onCompareSaved(item.username)}>Compare</button>
