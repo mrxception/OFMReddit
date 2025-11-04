@@ -10,6 +10,7 @@ export async function GET() {
       st.name AS tier_name,
       us.starts_at,
       us.ends_at,
+      us.cooldown,
       u.email AS user_email
      FROM user_subscriptions us
      JOIN users u ON us.user_id = u.id
@@ -20,7 +21,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const { userId, tierId, starts_at, ends_at } = await req.json()
+  const { userId, tierId, starts_at, ends_at, cooldown } = await req.json()
   if (!userId || !tierId || !starts_at) {
     return NextResponse.json({ error: "Missing userId, tierId, or start date" }, { status: 400 })
   }
@@ -36,18 +37,20 @@ export async function PUT(req: Request) {
     [userId]
   )
 
+  const cd = cooldown ?? "0"
+
   if (existing) {
     await query(
       `UPDATE user_subscriptions
-       SET tier_id = ?, starts_at = ?, ends_at = ?
+       SET tier_id = ?, starts_at = ?, ends_at = ?, cooldown = ?
        WHERE id = ?`,
-      [tierId, starts_at, ends_at ?? null, existing.id]
+      [tierId, starts_at, ends_at ?? null, cd, existing.id]
     )
   } else {
     await query(
-      `INSERT INTO user_subscriptions (user_id, tier_id, starts_at, ends_at)
-       VALUES (?, ?, ?, ?)`,
-      [userId, tierId, starts_at, ends_at ?? null]
+      `INSERT INTO user_subscriptions (user_id, tier_id, starts_at, ends_at, cooldown)
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, tierId, starts_at, ends_at ?? null, cd]
     )
   }
 
@@ -59,6 +62,7 @@ export async function PUT(req: Request) {
       st.name AS tier_name,
       us.starts_at,
       us.ends_at,
+      us.cooldown,
       u.email AS user_email
      FROM user_subscriptions us
      JOIN users u ON us.user_id = u.id
