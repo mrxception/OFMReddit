@@ -9,6 +9,7 @@ import { UsersTab } from "@/components/admin/users-tab"
 import { CopiedCaptionsTab } from "@/components/admin/copied-captions-tab"
 import { UserSubscriptionTab } from "@/components/admin/user-subscription-tab"
 import { SubscriptionTierTab } from "@/components/admin/subscription-tier-tab"
+import s from "@/styles/scraper.module.css"
 
 type Prompt = {
   id: number
@@ -445,7 +446,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`min-h-screen bg-background ${s.bgPattern}`}>
       <div className="container mx-auto p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-foreground mb-2">Admin Panel</h1>
