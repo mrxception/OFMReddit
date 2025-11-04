@@ -199,22 +199,45 @@ export default function FileUpload() {
     </div>
   ), [getRootProps, getInputProps, isDragActive, errorMessage, meta])
 
-  if (!data) return uploader
-
-  return (
-      <div className={`min-h-screen bg-background ${s.bgPattern}`}>
-        <div className="max-w-3xl mx-auto md:p-6">
-          <div className="flex items-center justify-between -mb-4">
-            <div className="text-sm text-muted-foreground">
-              {meta && meta.username ? `Using latest scrape: ${meta.username}${meta.username2 ? " vs " + meta.username2 : ""}` : "Loaded file"}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={useLatest} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">Use latest scrape</button>
-              <button onClick={clearPlanner} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">Clear planner</button>
-            </div>
+  const subUploader = useMemo(() => (
+    <div className={`min-h-screen bg-background ${s.bgPattern}`}>
+      <div className="max-w-3xl mx-auto md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm text-foreground">
+            {meta && meta.username ? `Using latest scrape: ${meta.username}` : "No latest scrape loaded"}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={useLatest} className="px-3 py-1.5 rounded-lg border border-border text-sm bg-card hover:bg-muted">Use latest scrape</button>
           </div>
         </div>
-        <PostingPlanner rawPosts={data} />
+
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h1 className="text-xl font-semibold text-foreground mb-2">Post Planner requires an active scrape</h1>
+          <p className="text-sm text-muted-foreground">
+            To build a posting plan, you must have an active scraped username loaded from the Performance Analysis. Use the button above to load your most recent scrape, or run a new scrape first. Plans are generated directly from your latest scrape data.
+          </p>
+        </div>
       </div>
+    </div>
+  ), [meta])
+
+  if (!data) return subUploader
+
+  return (
+    <div className={`min-h-screen bg-background ${s.bgPattern}`}>
+      <div className="max-w-3xl mx-auto md:p-6">
+        <div className="flex items-center justify-between -mb-4">
+          <div className="text-sm text-foreground">
+            {/*meta && meta.username ? `Using latest scrape: ${meta.username}${meta.username2 ? " vs " + meta.username2 : ""}` : "Loaded file"*/}
+            {meta && meta.username ? `Using latest scrape: ${meta.username}` : "Loaded file"}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={useLatest} className="px-3 py-1.5 rounded-lg border border-border text-sm bg-card hover:bg-muted">Use latest scrape</button>
+            <button onClick={clearPlanner} className="px-3 py-1.5 rounded-lg border border-border text-sm bg-card hover:bg-muted">Clear planner</button>
+          </div>
+        </div>
+      </div>
+      <PostingPlanner rawPosts={data} />
+    </div>
   )
 }
