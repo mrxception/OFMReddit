@@ -8,7 +8,10 @@ export async function POST(request: NextRequest) {
     const { email, password } = await request.json()
 
     if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      )
     }
 
     const users = await query<{
@@ -17,7 +20,9 @@ export async function POST(request: NextRequest) {
       password: string
       is_admin: boolean
       email_verified: boolean
-    }>("SELECT id, email, password, is_admin, email_verified FROM users WHERE email = ?", [email])
+    }>("SELECT id, email, password, is_admin, email_verified FROM users WHERE email = ?", [
+      email,
+    ])
 
     console.log("Login - Database query result:", {
       userCount: users.length,
@@ -38,7 +43,17 @@ export async function POST(request: NextRequest) {
 
     const user = users[0]
 
-    const bannedUsers = await query<{ id: number }>("SELECT id FROM banned_users WHERE user_id = ?", [user.id])
+    if (!user.email_verified) {
+      return NextResponse.json(
+        { error: "Please verify your email address before logging in." },
+        { status: 403 }
+      )
+    }
+
+    const bannedUsers = await query<{ id: number }>(
+      "SELECT id FROM banned_users WHERE user_id = ?",
+      [user.id]
+    )
 
     if (bannedUsers.length > 0) {
       return NextResponse.json({ error: "Your account has been banned" }, { status: 403 })
