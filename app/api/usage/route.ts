@@ -37,10 +37,12 @@ export async function POST(req: Request) {
                 [userId]
             )
 
+            /*
             if (!sub || sub.tier_id === 1) {
                 return NextResponse.json({ error: "No active subscription." }, { status: 403 })
             }
-
+            */
+           
             const within = await assertWithinLimits(userId, feature)
             if (!within.ok) {
                 const anyWithin: any = within
