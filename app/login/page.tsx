@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, Eye, EyeOff } from "lucide-react"
-import { supabase } from "@/lib/supabase"
 import s from "@/styles/scraper.module.css"
 
 export default function LoginPage() {
@@ -16,7 +15,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [showResendVerification, setShowResendVerification] = useState(false)
   const [resendEmail, setResendEmail] = useState("")
   const router = useRouter()
 
@@ -37,7 +35,6 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || "Login failed")
         if (res.status === 403) {
-          setShowResendVerification(true)
           setResendEmail(email)
         }
         return
@@ -54,24 +51,6 @@ export default function LoginPage() {
       setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleResendVerification = async () => {
-    try {
-      const { error: supaError } = await supabase.auth.resend({
-        email: resendEmail,
-        type: "signup",
-      })
-
-      if (supaError) {
-        alert(supaError.message || "Failed to resend verification email")
-      } else {
-        alert("Verification email resent successfully")
-        setShowResendVerification(false)
-      }
-    } catch (err) {
-      alert("Something went wrong. Please try again.")
     }
   }
 
@@ -144,17 +123,6 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-
-          {showResendVerification && (
-            <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                Haven't received the verification email?
-              </p>
-              <Button onClick={handleResendVerification} variant="outline" size="sm" className="w-full bg-transparent">
-                Resend Verification Email
-              </Button>
-            </div>
-          )}
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
