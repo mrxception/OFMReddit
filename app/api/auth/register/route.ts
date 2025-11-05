@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 min
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) 
 
     let insertId: number
 
