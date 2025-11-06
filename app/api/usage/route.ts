@@ -28,6 +28,12 @@ export async function POST(req: Request) {
         const userId = (me as any)?.userId ?? (me as any)?.id
         if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+        const site = await queryOne<{ show_sub: number }>(
+            "SELECT show_sub FROM site_controls WHERE id = 1 LIMIT 1",
+            [],
+        )
+        const showTiersFlag = (site?.show_sub ?? 1) === 1
+
         if (op === "check") {
             const sub = await queryOne<{ tier_id: number; cooldown: string }>(
                 `SELECT tier_id, cooldown FROM user_subscriptions 
@@ -42,13 +48,16 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: "No active subscription." }, { status: 403 })
             }
             */
-           
+
             const within = await assertWithinLimits(userId, feature)
             if (!within.ok) {
                 const anyWithin: any = within
+                if (anyWithin.code === "NO_ACCESS") {
+                    return NextResponse.json({ error: "This feature is not available for your plan.", showTiers: showTiersFlag }, { status: 403 })
+                }
                 if (anyWithin.code === "WEEKLY_LIMIT") {
                     return NextResponse.json(
-                        { error: `Weekly ${feature.replace("_", " ")} limit reached (${anyWithin.cap} uses per week).` },
+                        { error: `Weekly ${feature.replace("_", " ")} limit reached (${anyWithin.cap} uses per week).`, showTiers: showTiersFlag },
                         { status: 429 }
                     )
                 }

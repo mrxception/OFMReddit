@@ -13,6 +13,7 @@ import LineChartSection from "./line-chart-section"
 import KeyInsightsSection from "./key-insights-section"
 import KPI from "./kpi-section"
 import PdfSection from "./pdf-section"
+import SubscriptionTiers from "@/components/subscription/tiers"
 
 type RawPostRow = { Subreddit: string; Upvotes: number; Comments: number; Subreddit_Subscribers?: number; LastDate: string | Date }
 type SavedItem = { id: number; username: string; scraped_at: string }
@@ -51,6 +52,7 @@ export default function Scraper() {
   type AxisChoice = "Total_Posts" | "Average_Upvotes" | "Avg_Comments_Per_Post" | "Total_Upvotes" | "Total_Comments" | "Subreddit_Subscribers"
   type ScatterState = { xAxisChoice: AxisChoice; yAxisChoice: AxisChoice; averageMetricKey: "avg" | "median"; xDomain: AxisDomain; yDomain: AxisDomain }
   const [scatter, setScatter] = useState<ScatterState | undefined>(undefined)
+  const [showTiers, setShowTiers] = useState(false)
 
   function setProgress(frac: number) {
     if (!progRef.current) return
@@ -289,7 +291,15 @@ export default function Scraper() {
         body: JSON.stringify({ feature: "scraper", op: "check" }),
       })
       if (!pre.ok) {
-        const reason = await readServerError(pre)
+        let reason = pre.statusText
+        let open = pre.status === 429
+        try {
+          const j = await pre.json()
+          if (j?.error) reason = j.error
+          if (j?.showTiers === true) open = true
+          if (typeof reason === "string" && /weekly|subscription/i.test(reason)) open = true
+        } catch { }
+        setShowTiers(open)
         setStatus(reason)
         setMsg({ type: "err", text: reason })
         setBusy(false)
@@ -510,6 +520,11 @@ export default function Scraper() {
           selectors={{ kpi: "#kpi-section", table: "#excel-table", scatter: "#scatter-mean-vs-posts", bar: "#bar-top25-upvotes", line: "#line-performance-over-time", insights: "#key-insights-section" }}
         />
       </div>
+      <SubscriptionTiers
+        open={showTiers}
+        onClose={() => setShowTiers(false)}
+        currentTierId={undefined}
+      />
     </div>
   )
 }
