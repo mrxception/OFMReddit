@@ -9,7 +9,8 @@ import { UsersTab } from "@/components/admin/users-tab"
 import { CopiedCaptionsTab } from "@/components/admin/copied-captions-tab"
 import { UserSubscriptionTab } from "@/components/admin/user-subscription-tab"
 import { SubscriptionTierTab } from "@/components/admin/subscription-tier-tab"
-import { SiteControlsTab } from "@/components/admin/site-controls"
+import { SiteControlsTab } from "@/components/admin/site-controls-tab"
+import { ScraperDataTab } from "@/components/admin/scraper-data-tab"
 import s from "@/styles/scraper.module.css"
 
 type Prompt = {
@@ -498,13 +499,14 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="prompts" className="space-y-6">
-          <TabsList className="flex w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 lg:justify-between lg:overflow-visible lg:px-0">
+          <TabsList className="flex w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-1 lg:justify-between lg:overflow-visible lg:px-1">
             <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="prompts">Prompts & Docs</TabsTrigger>
             <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="users">Users</TabsTrigger>
             <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="subscriptions">User Subscription</TabsTrigger>
             <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="tiers">Subscription Tier</TabsTrigger>
             <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="analytics">Copied Captions</TabsTrigger>
             <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="site_controls">Site Controls</TabsTrigger>
+            <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="scraper_data">Scraper Data</TabsTrigger>
           </TabsList>
 
           <TabsContent value="prompts" className="space-y-6">
@@ -547,6 +549,10 @@ export default function AdminPage() {
           <TabsContent value="site_controls" className="space-y-4">
             <SiteControlsTab />
           </TabsContent>
+
+          <TabsContent value="scraper_data" className="space-y-4">
+            <ScraperDataTab />
+          </TabsContent>
         </Tabs>
 
         {banner && (
@@ -558,7 +564,7 @@ export default function AdminPage() {
           >
             {banner.text}
           </div>
-        )}  
+        )}
       </div>
     </div>
   )
