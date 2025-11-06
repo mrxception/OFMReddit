@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import s from "@/styles/scraper.module.css"
 import a from "@/styles/admin.module.css"
 
-type User = { id: number; email: string }
+type User = { id: number; email: string; username?: string | null; is_admin: boolean }
 type Subscription = { id: number; user_id: number; tier_id: number; starts_at: string | null; ends_at: string | null; cooldown: "0" | "10" | "30" | null }
 type Tier = { id: number; name: string }
 
@@ -40,10 +40,10 @@ export function UserSubscriptionTab() {
       fetch("/api/admin/subscriptions", { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/admin/subscription-tiers", { headers: { Authorization: `Bearer ${token}` } })
     ])
-      .then(async ([u, s, t]) => {
-        if (!u.ok || !s.ok || !t.ok) throw new Error("Failed to load data")
+      .then(async ([u, sRes, t]) => {
+        if (!u.ok || !sRes.ok || !t.ok) throw new Error("Failed to load data")
         const uData = await u.json()
-        const sData = await s.json()
+        const sData = await sRes.json()
         const tData = await t.json()
         setUsers(uData.users || [])
         setSubs(sData.subscriptions || [])
@@ -98,94 +98,108 @@ export function UserSubscriptionTab() {
   return (
     <div>
       <h2 className="text-xl font-semibold mb-3">Assign User Subscription</h2>
+
       <div className="rounded-xl border border-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-card/60">
-            <tr>
-              <th className="text-left p-3">User</th>
-              <th className="text-left p-3">Tier</th>
-              <th className="text-left p-3">Start Date</th>
-              <th className="text-left p-3">End Date</th>
-              <th className="text-left p-3">Cooldown</th>
-              <th className="text-left p-3 w-32">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => {
-              const row = rows[u.id] || { start: "", end: "", tierId: tiers[0]?.id ?? null, cooldown: "0" as const }
-              const isSaving = !!saving[u.id]
-              return (
-                <tr key={u.id} className="border-t border-border/60">
-                  <td className="p-3">
-                    <div className="font-medium">{u.email}</div>
-                    <div className="text-muted-foreground text-xs">User ID: {u.id}</div>
-                  </td>
-                  <td className="p-3">
-                    <Select
-                      value={row.tierId != null ? String(row.tierId) : ""}
-                      onValueChange={(v) =>
-                        setRows(prev => ({ ...prev, [u.id]: { ...row, tierId: v ? Number(v) : null } }))
-                      }
-                    >
-                      <SelectTrigger className={s.csvinput}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tiers.map(t => (
-                          <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-3">
-                    <input
-                      type="date"
-                      className={`${a.date} w-full rounded-md border border-border bg-background px-3 py-2 date-icon-tinted`}
-                      value={row.start}
-                      onChange={e => setRows(prev => ({ ...prev, [u.id]: { ...row, start: e.target.value } }))}
-                    />
-                  </td>
-                  <td className="p-3">
-                    <input
-                      type="date"
-                      className={`${a.date} w-full rounded-md border border-border bg-background px-3 py-2 date-icon-tinted`}
-                      value={row.end}
-                      onChange={e => setRows(prev => ({ ...prev, [u.id]: { ...row, end: e.target.value } }))}
-                    />
-                  </td>
-                  <td className="p-3">
-                    <Select
-                      value={row.cooldown}
-                      onValueChange={(v) =>
-                        setRows(prev => ({ ...prev, [u.id]: { ...row, cooldown: (v as "0" | "10" | "30") } }))
-                      }
-                    >
-                      <SelectTrigger className={s.csvinput}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COOLDOWN_CHOICES.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-3">
-                    <button
-                      className="w-full rounded-md bg-primary text-primary-foreground px-3 py-2 hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
-                      onClick={() => save(u.id, row.tierId, row.start || null, row.end || null, row.cooldown)}
-                      disabled={isSaving}
-                      aria-busy={isSaving}
-                    >
-                      {isSaving ? "Saving…" : "Save"}
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[980px] text-sm">
+            <thead className="bg-card/60">
+              <tr>
+                <th className="text-left p-3 whitespace-nowrap">User</th>
+                <th className="text-left p-3 whitespace-nowrap">Username</th>
+                <th className="text-left p-3 whitespace-nowrap">Tier</th>
+                <th className="text-left p-3 whitespace-nowrap">Start Date</th>
+                <th className="text-left p-3 whitespace-nowrap">End Date</th>
+                <th className="text-left p-3 whitespace-nowrap">Cooldown</th>
+                <th className="text-left p-3 w-32 whitespace-nowrap">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => {
+                const row = rows[u.id] || { start: "", end: "", tierId: tiers[0]?.id ?? null, cooldown: "0" as const }
+                const isSaving = !!saving[u.id]
+                return (
+                  <tr key={u.id} className="border-t border-border/60">
+                    <td className="p-3">
+                      <div className="font-medium truncate max-w-[260px]">{u.email}</div>
+                      {u.is_admin ? (
+                        <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">Admin</span>
+                      ) : (
+                        <span className="text-xs bg-muted text-foreground/70 px-2 py-0.5 rounded">User</span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <span className={u.username && u.username.trim() !== "" ? "truncate inline-block max-w-[220px]" : "text-muted-foreground/70 italic"}>
+                        {u.username && u.username.trim() !== "" ? u.username : "None"}
+                      </span>
+                    </td>
+                    <td className="p-3 min-w-[200px]">
+                      <Select
+                        value={row.tierId != null ? String(row.tierId) : ""}
+                        onValueChange={(v) =>
+                          setRows(prev => ({ ...prev, [u.id]: { ...row, tierId: v ? Number(v) : null } }))
+                        }
+                      >
+                        <SelectTrigger className={s.csvinput}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tiers.map(t => (
+                            <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-3 min-w-[180px]">
+                      <input
+                        type="date"
+                        className={`${a.date} w-full rounded-md border border-border bg-background px-3 py-2 date-icon-tinted`}
+                        value={row.start}
+                        onChange={e => setRows(prev => ({ ...prev, [u.id]: { ...row, start: e.target.value } }))}
+                      />
+                    </td>
+                    <td className="p-3 min-w-[180px]">
+                      <input
+                        type="date"
+                        className={`${a.date} w-full rounded-md border border-border bg-background px-3 py-2 date-icon-tinted`}
+                        value={row.end}
+                        onChange={e => setRows(prev => ({ ...prev, [u.id]: { ...row, end: e.target.value } }))}
+                      />
+                    </td>
+                    <td className="p-3 min-w-[200px]">
+                      <Select
+                        value={row.cooldown}
+                        onValueChange={(v) =>
+                          setRows(prev => ({ ...prev, [u.id]: { ...row, cooldown: (v as "0" | "10" | "30") } }))
+                        }
+                      >
+                        <SelectTrigger className={s.csvinput}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COOLDOWN_CHOICES.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-3 min-w-[140px]">
+                      <button
+                        className="w-full rounded-md bg-primary text-primary-foreground px-3 py-2 hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={() => save(u.id, row.tierId, row.start || null, row.end || null, row.cooldown)}
+                        disabled={isSaving}
+                        aria-busy={isSaving}
+                      >
+                        {isSaving ? "Saving…" : "Save"}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+
       <p className="text-xs text-muted-foreground mt-2">Leave a date empty to clear it. Dates save as YYYY-MM-DD.</p>
 
       {banner && (
