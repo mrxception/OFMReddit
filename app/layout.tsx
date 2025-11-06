@@ -8,8 +8,8 @@ import "./globals.css"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "OFMReddit - Reddit Analytics & Caption Generator",
-  description: "Analyze Reddit performance and generate AI-powered captions",
+  title: "OFMReddit - Reddit Analytics",
+  description: "Analyze Reddit performance",
   generator: "Next.js",
 }
 
