@@ -12,6 +12,7 @@ type Tier = {
 
 type AssertOk = { ok: true }
 type NoTier = { ok: false; code: "NO_TIER" }
+type NoAccess = { ok: false; code: "NO_ACCESS"; weekly: number; cap: number }
 type WeeklyLimit = { ok: false; code: "WEEKLY_LIMIT"; weekly: number; cap: number }
 type Cooldown = { ok: false; code: "COOLDOWN"; wait: number }
 
@@ -65,14 +66,24 @@ function capFor(feature: Feature, tier: Tier): number {
   return tier.weekly_caption_limit
 }
 
-export async function assertWithinLimits(userId: number, feature: Feature): Promise<AssertOk | NoTier | WeeklyLimit> {
+export async function assertWithinLimits(
+  userId: number,
+  feature: Feature
+): Promise<AssertOk | NoTier | NoAccess |WeeklyLimit> {
   const tier = await getActiveTierForUser(userId)
   if (!tier) return { ok: false, code: "NO_TIER" }
+
   const weekly = await getWeeklyCount(userId, feature)
   const cap = capFor(feature, tier)
-  if (cap > 0 && weekly >= cap) return { ok: false, code: "WEEKLY_LIMIT", weekly, cap }
+
+  if (cap === 0) return { ok: false, code: "NO_ACCESS", weekly, cap }
+
+  if (cap > 0 && weekly >= cap)
+    return { ok: false, code: "WEEKLY_LIMIT", weekly, cap }
+
   return { ok: true }
 }
+
 
 async function getCooldownWaitFromDB(userId: number, feature: Feature, cooldownMinutes: number): Promise<number> {
   const sql = `

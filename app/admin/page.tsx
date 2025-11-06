@@ -9,6 +9,7 @@ import { UsersTab } from "@/components/admin/users-tab"
 import { CopiedCaptionsTab } from "@/components/admin/copied-captions-tab"
 import { UserSubscriptionTab } from "@/components/admin/user-subscription-tab"
 import { SubscriptionTierTab } from "@/components/admin/subscription-tier-tab"
+import { SiteControlsTab } from "@/components/admin/site-controls"
 import s from "@/styles/scraper.module.css"
 
 type Prompt = {
@@ -454,13 +455,15 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="prompts" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[980px]">
-            <TabsTrigger value="prompts">Prompts & Docs</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="subscriptions">User Subscription</TabsTrigger>
-            <TabsTrigger value="tiers">Subscription Tier</TabsTrigger>
-            <TabsTrigger value="analytics">Copied Captions</TabsTrigger>
-          </TabsList>
+          <TabsList className="flex w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 lg:justify-between lg:overflow-visible lg:px-0">
+  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="prompts">Prompts & Docs</TabsTrigger>
+  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="users">Users</TabsTrigger>
+  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="subscriptions">User Subscription</TabsTrigger>
+  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="tiers">Subscription Tier</TabsTrigger>
+  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="analytics">Copied Captions</TabsTrigger>
+  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="site_controls">Site Controls</TabsTrigger>
+</TabsList>
+
 
           <TabsContent value="prompts" className="space-y-6">
             <PromptsTab
@@ -495,6 +498,10 @@ export default function AdminPage() {
 
           <TabsContent value="analytics" className="space-y-4">
             <CopiedCaptionsTab copiedCaptions={copiedCaptions} />
+          </TabsContent>
+
+          <TabsContent value="site_controls" className="space-y-4">
+            <SiteControlsTab />
           </TabsContent>
         </Tabs>
       </div>
