@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       `SELECT 
         u.id, 
         u.email, 
+        u.username,
         u.is_admin, 
         u.email_verified, 
         u.created_at,
@@ -35,6 +36,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ users })
   } catch (error: any) {
     console.error("Error fetching users:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    const payload = verifyAdminToken(token)
+    if (!payload) return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+
+    const { userId, username } = await request.json()
+    if (!userId) return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+
+    const cleanName =
+      typeof username === "string" && username.trim() !== "" ? username.trim() : null
+
+    await query("UPDATE users SET username = ? WHERE id = ?", [cleanName, userId])
+
+    return NextResponse.json({
+      success: true,
+      user: { id: Number(userId), username: cleanName ?? null }
+    })
+  } catch (error: any) {
+    console.error("Error updating username:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -58,7 +85,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    
+
     if (Number.parseInt(userId) === payload.userId) {
       return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
     }

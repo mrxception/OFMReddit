@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Users } from "lucide-react"
@@ -33,6 +33,7 @@ type Document = {
 type User = {
   id: number
   email: string
+  username?: string | null
   is_admin: boolean
   email_verified: boolean
   created_at: string
@@ -62,6 +63,17 @@ export default function AdminPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [showSavedSuccess, setShowSavedSuccess] = useState(false)
+  const [savingUsername, setSavingUsername] = useState<Record<number, boolean>>({})
+  const [banner, setBanner] = useState<{ text: string; kind: "ok" | "err" } | null>(null)
+  const bannerTimerRef = useRef<number | null>(null)
+
+  const showBanner = (text: string, kind: "ok" | "err" = "ok") => {
+    setBanner({ text, kind })
+    if (bannerTimerRef.current) window.clearTimeout(bannerTimerRef.current)
+    bannerTimerRef.current = window.setTimeout(() => setBanner(null), 2000)
+  }
+
+  useEffect(() => () => { if (bannerTimerRef.current) window.clearTimeout(bannerTimerRef.current) }, [])
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -425,6 +437,37 @@ export default function AdminPage() {
     }
   }
 
+  const handleUpdateUsername = async (userId: number, username: string | null) => {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      toast({ title: "Error", description: "Authentication token missing", variant: "destructive" })
+      return
+    }
+    setSavingUsername(prev => ({ ...prev, [userId]: true }))
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId, username }),
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        throw new Error(e.error || "Failed to update username")
+      }
+      const data = await res.json().catch(() => ({}))
+      const newName = (data?.user?.username ?? username) as string | null
+
+      setUsers(prev => prev.map(u => (u.id === userId ? { ...u, username: newName } : u)))
+      toast({ title: "Saved", description: "Username updated" })
+      showBanner("Username updated!", "ok")
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to update username", variant: "destructive" })
+      showBanner(err.message || "Failed to update username", "err")
+    } finally {
+      setSavingUsername(prev => ({ ...prev, [userId]: false }))
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
@@ -456,14 +499,13 @@ export default function AdminPage() {
 
         <Tabs defaultValue="prompts" className="space-y-6">
           <TabsList className="flex w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 lg:justify-between lg:overflow-visible lg:px-0">
-  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="prompts">Prompts & Docs</TabsTrigger>
-  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="users">Users</TabsTrigger>
-  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="subscriptions">User Subscription</TabsTrigger>
-  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="tiers">Subscription Tier</TabsTrigger>
-  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="analytics">Copied Captions</TabsTrigger>
-  <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="site_controls">Site Controls</TabsTrigger>
-</TabsList>
-
+            <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="prompts">Prompts & Docs</TabsTrigger>
+            <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="users">Users</TabsTrigger>
+            <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="subscriptions">User Subscription</TabsTrigger>
+            <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="tiers">Subscription Tier</TabsTrigger>
+            <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="analytics">Copied Captions</TabsTrigger>
+            <TabsTrigger className="flex-none px-4 lg:flex-1 lg:justify-center" value="site_controls">Site Controls</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="prompts" className="space-y-6">
             <PromptsTab
@@ -484,7 +526,9 @@ export default function AdminPage() {
               users={users}
               onBanUser={handleBanUser}
               onDeleteUser={handleDeleteUser}
+              onUpdateUsername={handleUpdateUsername}
               disabled={isSaving || uploadingFile}
+              savingMap={savingUsername}
             />
           </TabsContent>
 
@@ -504,6 +548,17 @@ export default function AdminPage() {
             <SiteControlsTab />
           </TabsContent>
         </Tabs>
+
+        {banner && (
+          <div
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-3 py-2 text-sm rounded-md shadow-lg
+      ${banner.kind === "ok" ? "bg-foreground text-background" : "bg-rose-600 text-white"}`}
+            role="status"
+            aria-live="polite"
+          >
+            {banner.text}
+          </div>
+        )}  
       </div>
     </div>
   )

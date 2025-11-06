@@ -7,6 +7,7 @@ import { UserRow } from "./user-row"
 type User = {
   id: number
   email: string
+  username?: string | null
   is_admin: boolean
   email_verified: boolean
   created_at: string
@@ -21,10 +22,12 @@ type UsersTabProps = {
   users: User[]
   onBanUser: (userId: number, currentlyBanned: boolean) => Promise<void>
   onDeleteUser: (userId: number) => Promise<void>
+  onUpdateUsername: (userId: number, username: string | null) => Promise<void>
   disabled: boolean
+  savingMap: Record<number, boolean>
 }
 
-export function UsersTab({ users, onBanUser, onDeleteUser, disabled }: UsersTabProps) {
+export function UsersTab({ users, onBanUser, onDeleteUser, onUpdateUsername, disabled, savingMap }: UsersTabProps) {
   return (
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -37,6 +40,7 @@ export function UsersTab({ users, onBanUser, onDeleteUser, disabled }: UsersTabP
           <thead>
             <tr className="border-b border-border">
               <th className="text-left p-3 text-sm font-medium">Email</th>
+              <th className="text-left p-3 text-sm font-medium">Username</th>
               <th className="text-left p-3 text-sm font-medium">Posts</th>
               <th className="text-left p-3 text-sm font-medium">Copied</th>
               <th className="text-left p-3 text-sm font-medium">Status</th>
@@ -46,7 +50,15 @@ export function UsersTab({ users, onBanUser, onDeleteUser, disabled }: UsersTabP
           </thead>
           <tbody>
             {users.map((user) => (
-              <UserRow key={user.id} user={user} onBan={onBanUser} onDelete={onDeleteUser} disabled={disabled} />
+              <UserRow
+                key={user.id}
+                user={user}
+                onBan={onBanUser}
+                onDelete={onDeleteUser}
+                onUpdateUsername={onUpdateUsername}
+                disabled={disabled}
+                saving={!!savingMap[user.id]} 
+              />
             ))}
           </tbody>
         </table>
