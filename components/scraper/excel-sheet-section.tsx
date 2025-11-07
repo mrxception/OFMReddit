@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { Checkbox } from '@/components/ui/checkbox'
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface ExcelSheetSectionProps {
   hasTop10: boolean
@@ -16,11 +16,16 @@ interface ExcelSheetSectionProps {
   onExport: (kind: "data" | "raw", target: "u1" | "u2", opts: { inclVote: boolean; inclComm: boolean; inclMed: boolean; inclSubs: boolean; inclPER: boolean }) => void
 }
 
-function measureTextPx(text: string, font: string) {
+function measureTextPxCached(text: string, font: string, cache: Map<string, number>) {
+  const key = font + "|" + (text || "")
+  const hit = cache.get(key)
+  if (hit != null) return hit
   const canvas = document.createElement("canvas")
   const ctx = canvas.getContext("2d")!
   ctx.font = font
-  return Math.ceil(ctx.measureText(text || "").width)
+  const w = Math.ceil(ctx.measureText(text || "").width)
+  cache.set(key, w)
+  return w
 }
 
 function parsePostFrequency(val: string) {
@@ -55,30 +60,25 @@ export default function ExcelSheetSection({
   const compare = !!username2 && Array.isArray(rows2) && rows2.length > 0
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = React.useState(true)
-
   const [inclVote, setInclVote] = React.useState(defaults.inclVote)
   const [inclComm, setInclComm] = React.useState(defaults.inclComm)
   const [inclMed, setInclMed] = React.useState(defaults.inclMed)
   const [inclSubs, setInclSubs] = React.useState(subsAvailable ? defaults.inclSubs : false)
   const [inclPER, setInclPER] = React.useState(subsAvailable ? defaults.inclPER : false)
-
-  const nonSortableSingle = new Set(["Subreddit"])
-  const nonSortableCompare = new Set(["Subreddit"])
-
+  const nonSortableSingle = React.useMemo(() => new Set(["Subreddit"]), [])
+  const nonSortableCompare = React.useMemo(() => new Set(["Subreddit"]), [])
   const [sortKeySingle, setSortKeySingle] = React.useState<string | null>(null)
   const [sortDirSingle, setSortDirSingle] = React.useState<"asc" | "desc">("desc")
   const [sortKeyComp, setSortKeyComp] = React.useState<string | null>(null)
   const [sortDirComp, setSortDirComp] = React.useState<"asc" | "desc">("desc")
-
   const [colMinPx, setColMinPx] = React.useState<number[]>([])
   const [gridCols, setGridCols] = React.useState<string>("")
-
   const [toastMsg, setToastMsg] = React.useState<string | null>(null)
   const copyTimerRef = React.useRef<number | null>(null)
   const notify = React.useCallback((msg: string) => {
     setToastMsg(msg)
     if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
-    copyTimerRef.current = window.setTimeout(() => setToastMsg(null), 1200)
+    copyTimerRef.current = window.setTimeout(() => setToastMsg(null), 1000)
   }, [])
   React.useEffect(() => () => { if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current) }, [])
 
@@ -99,12 +99,6 @@ export default function ExcelSheetSection({
       return ok
     }
   }, [])
-
-  const copySubreddit = React.useCallback(async (name: string) => {
-    if (!name) return
-    const ok = await writeClipboard(name)
-    if (ok) notify("Subreddit copied!")
-  }, [notify, writeClipboard])
 
   const cols = React.useMemo(() => {
     const list: Array<{ key: string; label: string }> = [
@@ -142,41 +136,64 @@ export default function ExcelSheetSection({
     const a = new Set<string>((rows || []).map((r: any) => r?.Subreddit).filter(Boolean))
     const b = new Set<string>((rows2 || []).map((r: any) => r?.Subreddit).filter(Boolean))
     const inter: string[] = []
-    a.forEach(s => { if (b.has(s)) inter.push(s) })
+    a.forEach(su => { if (b.has(su)) inter.push(su) })
     inter.sort((x, y) => x.localeCompare(y))
     return inter
   }, [rows, rows2, compare])
 
-  const sortedRowsSingle = React.useMemo(() => {
-    if (!Array.isArray(rows) || !sortKeySingle || nonSortableSingle.has(sortKeySingle)) return rows
-    const arr = rows.slice()
-    const getVal = (r: any) => {
-      const v = r?.[sortKeySingle as string]
-      if (sortKeySingle === "Post_Frequency") return parsePostFrequency(String(v || ""))
-      if (sortKeySingle === "WPI_Rating") return ratingWeight(String(v || ""))
-      if (sortKeySingle === "LastDateTimeUTC") {
-        const t = Date.parse(String(v || ""))
-        return Number.isFinite(t) ? t : -Infinity
+  const preRow = React.useCallback((r: any) => {
+    const o: any = { ...r }
+    if (r) {
+      const nU = Number(r.Total_Upvotes)
+      const nC = Number(r.Total_Comments)
+      const nS = Number(r.Subreddit_Subscribers)
+      const nW = Number(r.WPI_Score)
+      const aU = Number(r.Avg_Upvotes_Per_Post)
+      const aC = Number(r.Avg_Comments_Per_Post)
+      o._fmt = {
+        Total_Upvotes: Number.isFinite(nU) ? nU.toLocaleString() : r.Total_Upvotes ?? "",
+        Total_Comments: Number.isFinite(nC) ? nC.toLocaleString() : r.Total_Comments ?? "",
+        Subreddit_Subscribers: Number.isFinite(nS) ? nS.toLocaleString() : r.Subreddit_Subscribers ?? "",
+        WPI_Score: Number.isFinite(nW) ? nW.toLocaleString() : r.WPI_Score ?? "",
+        Avg_Upvotes_Per_Post: Number.isFinite(aU) ? Math.round(aU).toLocaleString() : r.Avg_Upvotes_Per_Post ?? "",
+        Avg_Comments_Per_Post: Number.isFinite(aC) ? Math.round(aC).toLocaleString() : r.Avg_Comments_Per_Post ?? "",
+        LastDateTimeUTC: r.LastDateTimeUTC ? fmtUTC(r.LastDateTimeUTC) : "",
       }
-      if (typeof v === "number") return v
-      if (v == null) return -Infinity
-      const num = Number(String(v).replace(/,/g, ""))
-      if (!Number.isNaN(num) && String(v).trim() !== "") return num
-      return String(v)
     }
+    return o
+  }, [fmtUTC])
+
+  const preRowsSingle = React.useMemo(() => (rows || []).map(preRow), [rows, preRow])
+
+  const getSortVal = React.useCallback((r: any, key: string) => {
+    const v = r?.[key]
+    if (key === "Post_Frequency") return parsePostFrequency(String(v || ""))
+    if (key === "WPI_Rating") return ratingWeight(String(v || ""))
+    if (key === "LastDateTimeUTC") {
+      const t = Date.parse(String(v || ""))
+      return Number.isFinite(t) ? t : -Infinity
+    }
+    if (typeof v === "number") return v
+    if (v == null) return -Infinity
+    const num = Number(String(v).replace(/,/g, ""))
+    if (!Number.isNaN(num) && String(v).trim() !== "") return num
+    return String(v)
+  }, [])
+
+  const sortedRowsSingle = React.useMemo(() => {
+    if (!Array.isArray(preRowsSingle) || !sortKeySingle || nonSortableSingle.has(sortKeySingle)) return preRowsSingle
+    const arr = preRowsSingle.slice()
     arr.sort((a, b) => {
-      const va = getVal(a)
-      const vb = getVal(b)
-      if (typeof va === "number" && typeof vb === "number") {
-        return sortDirSingle === "asc" ? va - vb : vb - va
-      }
+      const va = getSortVal(a, sortKeySingle)
+      const vb = getSortVal(b, sortKeySingle)
+      if (typeof va === "number" && typeof vb === "number") return sortDirSingle === "asc" ? va - vb : vb - va
       const sa = String(va)
       const sb = String(vb)
       const cmp = sa.localeCompare(sb, undefined, { numeric: true, sensitivity: "base" })
       return sortDirSingle === "asc" ? cmp : -cmp
     })
     return arr
-  }, [rows, sortKeySingle, sortDirSingle])
+  }, [preRowsSingle, sortKeySingle, sortDirSingle, nonSortableSingle, getSortVal])
 
   const onHeaderClickSingle = (key: string) => {
     if (nonSortableSingle.has(key)) return
@@ -188,66 +205,85 @@ export default function ExcelSheetSection({
     setSortDirSingle(d => (d === "desc" ? "asc" : "desc"))
   }
 
-  React.useEffect(() => {
-    if (compare) return
-    let cancelled = false
-    const run = async () => {
-      try { if ((document as any).fonts?.ready) await (document as any).fonts.ready } catch { }
-      const font = getComputedStyle(document.body).font || "14px system-ui, -apple-system, Segoe UI, Arial, sans-serif"
-      const PADDING = 16
-      const ICON_PAD = 16
-      const MIN = 104
-      const MAX = 380
-      const SAMPLE_ROWS = 50
-      const mins = cols.map((c) => {
-        let need = measureTextPx(c.label, font) + ICON_PAD
-        const limit = Math.min(sortedRowsSingle.length, SAMPLE_ROWS)
-        for (let i = 0; i < limit; i++) {
-          const r = sortedRowsSingle[i]
-          let v: any = r?.[c.key]
-          if (c.key === "LastDateTimeUTC") v = v ? fmtUTC(v) : ""
-          else if (c.key === "Total_Upvotes" || c.key === "Total_Comments" || c.key === "Subreddit_Subscribers" || c.key === "WPI_Score") {
-            const n = Number(v)
-            v = Number.isFinite(n) ? n.toLocaleString() : (v ?? "")
-          } else if (c.key === "Avg_Upvotes_Per_Post" || c.key === "Avg_Comments_Per_Post") {
-            const n = Number(v)
-            v = Number.isFinite(n) ? Math.round(n).toLocaleString() : (v ?? "")
-          } else {
-            v = v ?? ""
-          }
-          const w = measureTextPx(String(v), font)
-          if (w > need) need = w
-        }
-        return Math.max(MIN, Math.min(MAX, need + PADDING))
-      })
-      if (!cancelled) setColMinPx(mins)
-    }
-    run()
-    return () => { cancelled = true }
-  }, [
-    compare,
-    cols.map((c) => c.key + ":" + c.label).join("|"),
-    sortedRowsSingle.slice(0, 50).map((r) => JSON.stringify(r)).join("|"),
-  ])
+  const widthCacheRef = React.useRef<Map<string, number>>(new Map())
+  const lastMeasuredHashRef = React.useRef<string>("")
 
-  React.useEffect(() => {
+  const measureColumnsOnce = React.useCallback(() => {
+    if (compare) return
+    const el = containerRef.current
+    if (!el) return
+    const font = getComputedStyle(document.body).font || "14px system-ui, -apple-system, Segoe UI, Arial, sans-serif"
+    const PADDING = 16
+    const ICON_PAD = 16
+    const MIN = 104
+    const MAX = 380
+    const SAMPLE_ROWS = 50
+    const hash = cols.map(c => c.key + ":" + c.label).join("|") + "::" + String(sortedRowsSingle.length)
+    if (hash === lastMeasuredHashRef.current && colMinPx.length) return
+    lastMeasuredHashRef.current = hash
+    const mins = cols.map((c) => {
+      let need = measureTextPxCached(c.label, font, widthCacheRef.current) + ICON_PAD
+      const limit = Math.min(sortedRowsSingle.length, SAMPLE_ROWS)
+      for (let i = 0; i < limit; i++) {
+        const r = sortedRowsSingle[i]
+        let v: any = r?.[c.key]
+        if (c.key === "LastDateTimeUTC") v = r?._fmt?.LastDateTimeUTC || ""
+        else if (c.key === "Total_Upvotes") v = r?._fmt?.Total_Upvotes ?? r?.Total_Upvotes ?? ""
+        else if (c.key === "Total_Comments") v = r?._fmt?.Total_Comments ?? r?.Total_Comments ?? ""
+        else if (c.key === "Subreddit_Subscribers") v = r?._fmt?.Subreddit_Subscribers ?? r?.Subreddit_Subscribers ?? ""
+        else if (c.key === "WPI_Score") v = r?._fmt?.WPI_Score ?? r?.WPI_Score ?? ""
+        else if (c.key === "Avg_Upvotes_Per_Post") v = r?._fmt?.Avg_Upvotes_Per_Post ?? r?.Avg_Upvotes_Per_Post ?? ""
+        else if (c.key === "Avg_Comments_Per_Post") v = r?._fmt?.Avg_Comments_Per_Post ?? r?.Avg_Comments_Per_Post ?? ""
+        else v = v ?? ""
+        const w = measureTextPxCached(String(v), font, widthCacheRef.current)
+        if (w > need) need = w
+      }
+      return Math.max(MIN, Math.min(MAX, need + PADDING))
+    })
+    setColMinPx(mins)
+  }, [compare, cols, sortedRowsSingle, colMinPx.length])
+
+  const computeGrid = React.useCallback(() => {
     if (compare) return
     if (!containerRef.current || colMinPx.length === 0) return
     const el = containerRef.current
-    const compute = () => {
-      const contentWidth = Math.floor(el.clientWidth)
-      const sum = colMinPx.reduce((t, x) => t + x, 48)
-      if (sum <= contentWidth) {
-        setGridCols(`48px ${colMinPx.map((w) => `minmax(${w}px, 1fr)`).join(" ")}`)
-      } else {
-        setGridCols(`48px ${colMinPx.map((w) => `${w}px`).join(" ")}`)
-      }
-    }
-    compute()
-    const ro = new ResizeObserver(() => compute())
-    ro.observe(el)
-    return () => ro.disconnect()
+    const contentWidth = Math.floor(el.clientWidth)
+    const sum = colMinPx.reduce((t, x) => t + x, 48)
+    if (sum <= contentWidth) setGridCols(`48px ${colMinPx.map((w) => `minmax(${w}px, 1fr)`).join(" ")}`)
+    else setGridCols(`48px ${colMinPx.map((w) => `${w}px`).join(" ")}`)
   }, [compare, colMinPx])
+
+  const rafIdRef = React.useRef<number | null>(null)
+  const lastWidthRef = React.useRef<number>(0)
+  const onResize = React.useCallback(() => {
+    if (!containerRef.current) return
+    const w = containerRef.current.clientWidth
+    if (w === lastWidthRef.current) return
+    lastWidthRef.current = w
+    if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current)
+    rafIdRef.current = requestAnimationFrame(() => {
+      measureColumnsOnce()
+      computeGrid()
+    })
+  }, [measureColumnsOnce, computeGrid])
+
+  React.useEffect(() => {
+    if (!isOpen || compare) return
+    measureColumnsOnce()
+    computeGrid()
+  }, [isOpen, compare, measureColumnsOnce, computeGrid])
+
+  React.useEffect(() => {
+    if (compare) return
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(onResize)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current)
+    }
+  }, [compare, onResize])
 
   const sortedSubsComp = React.useMemo(() => {
     const base = overlapSubs
@@ -272,9 +308,7 @@ export default function ExcelSheetSection({
     arr.sort((a, b) => {
       const va = getVal(a)
       const vb = getVal(b)
-      if (typeof va === "number" && typeof vb === "number") {
-        return sortDirComp === "asc" ? va - vb : vb - va
-      }
+      if (typeof va === "number" && typeof vb === "number") return sortDirComp === "asc" ? va - vb : vb - va
       const sa = String(va)
       const sb = String(vb)
       const cmp = sa.localeCompare(sb, undefined, { numeric: true, sensitivity: "base" })
@@ -304,25 +338,30 @@ export default function ExcelSheetSection({
   }, [metrics])
 
   const renderCellValue = (metricKey: string, rowObj: any) => {
-    let v: any = rowObj ? rowObj[metricKey] : undefined
-    if (metricKey === "LastDateTimeUTC") v = v ? fmtUTC(v) : ""
-    else if (metricKey === "Total_Upvotes" || metricKey === "Total_Comments" || metricKey === "Subreddit_Subscribers" || metricKey === "WPI_Score") {
-      const n = Number(v)
-      v = Number.isFinite(n) ? n.toLocaleString() : (v ?? "")
-    } else if (metricKey === "Avg_Upvotes_Per_Post" || metricKey === "Avg_Comments_Per_Post") {
-      const n = Number(v)
-      v = Number.isFinite(n) ? Math.round(n).toLocaleString() : (v ?? "")
-    } else {
-      v = v ?? ""
-    }
-    return v
+    if (!rowObj) return ""
+    if (metricKey === "LastDateTimeUTC") return rowObj._fmt?.LastDateTimeUTC ?? (rowObj.LastDateTimeUTC ? fmtUTC(rowObj.LastDateTimeUTC) : "")
+    if (metricKey === "Total_Upvotes") return rowObj._fmt?.Total_Upvotes ?? rowObj.Total_Upvotes ?? ""
+    if (metricKey === "Total_Comments") return rowObj._fmt?.Total_Comments ?? rowObj.Total_Comments ?? ""
+    if (metricKey === "Subreddit_Subscribers") return rowObj._fmt?.Subreddit_Subscribers ?? rowObj.Subreddit_Subscribers ?? ""
+    if (metricKey === "WPI_Score") return rowObj._fmt?.WPI_Score ?? rowObj.WPI_Score ?? ""
+    if (metricKey === "Avg_Upvotes_Per_Post") return rowObj._fmt?.Avg_Upvotes_Per_Post ?? rowObj.Avg_Upvotes_Per_Post ?? ""
+    if (metricKey === "Avg_Comments_Per_Post") return rowObj._fmt?.Avg_Comments_Per_Post ?? rowObj.Avg_Comments_Per_Post ?? ""
+    return rowObj[metricKey] ?? ""
   }
+
+  const onTableClick = React.useCallback(async (e: React.MouseEvent) => {
+    const t = e.target as HTMLElement
+    const target = t.closest("[data-sub]") as HTMLElement | null
+    if (!target) return
+    const name = target.getAttribute("data-sub") || ""
+    if (!name) return
+    const ok = await writeClipboard(name)
+    if (ok) notify("Subreddit copied!")
+  }, [notify, writeClipboard])
 
   const copyAllSubs = React.useCallback(async () => {
     if (!rows || rows.length === 0) return
-    const list = compare
-      ? sortedSubsComp
-      : (sortedRowsSingle || []).map((r: any) => r?.Subreddit).filter(Boolean)
+    const list = compare ? sortedSubsComp : (sortedRowsSingle || []).map((r: any) => r?.Subreddit).filter(Boolean)
     if (!list.length) return
     const ok = await writeClipboard(list.join("\n"))
     if (ok) notify("Subreddits copied!")
@@ -333,50 +372,25 @@ export default function ExcelSheetSection({
   const CheckboxRow = () => (
     <div className="mt-1 mb-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <label htmlFor="inclVote" className="flex items-center gap-2 cursor-pointer">
-        <Checkbox
-          id="inclVote"
-          checked={inclVote}
-          onCheckedChange={(v) => setInclVote(Boolean(v))}
-          className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
-        />
+        <Checkbox id="inclVote" checked={inclVote} onCheckedChange={(v) => setInclVote(Boolean(v))} className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]" />
         <span className="text-sm text-foreground">Total upvotes</span>
       </label>
       <label htmlFor="inclComm" className="flex items-center gap-2 cursor-pointer">
-        <Checkbox
-          id="inclComm"
-          checked={inclComm}
-          onCheckedChange={(v) => setInclComm(Boolean(v))}
-          className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
-        />
+        <Checkbox id="inclComm" checked={inclComm} onCheckedChange={(v) => setInclComm(Boolean(v))} className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]" />
         <span className="text-sm text-foreground">Total comments</span>
       </label>
       <label htmlFor="inclMed" className="flex items-center gap-2 cursor-pointer">
-        <Checkbox
-          id="inclMed"
-          checked={inclMed}
-          onCheckedChange={(v) => setInclMed(Boolean(v))}
-          className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
-        />
+        <Checkbox id="inclMed" checked={inclMed} onCheckedChange={(v) => setInclMed(Boolean(v))} className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]" />
         <span className="text-sm text-foreground">Median average upvotes per post</span>
       </label>
       {subsAvailable && (
         <>
           <label htmlFor="inclSubs" className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              id="inclSubs"
-              checked={inclSubs}
-              onCheckedChange={(v) => setInclSubs(Boolean(v))}
-              className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
-            />
+            <Checkbox id="inclSubs" checked={inclSubs} onCheckedChange={(v) => setInclSubs(Boolean(v))} className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]" />
             <span className="text-sm text-foreground">Subreddit member count</span>
           </label>
           <label htmlFor="inclPER" className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              id="inclPER"
-              checked={inclPER}
-              onCheckedChange={(v) => setInclPER(Boolean(v))}
-              className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]"
-            />
+            <Checkbox id="inclPER" checked={inclPER} onCheckedChange={(v) => setInclPER(Boolean(v))} className="size-5 rounded-full border-1 bg-[var(--color-background)] border-[var(--color-primary)]" />
             <span className="text-sm text-foreground">Performance rating</span>
           </label>
         </>
@@ -386,40 +400,15 @@ export default function ExcelSheetSection({
 
   return (
     <div className="rounded-lg border border-border bg-card">
-      <header
-        className="p-6 cursor-pointer flex justify-between items-center"
-        onClick={() => setIsOpen(v => !v)}
-        aria-expanded={isOpen}
-        aria-controls="excel-content"
-      >
+      <header className="p-6 cursor-pointer flex justify-between items-center" onClick={() => setIsOpen(v => !v)} aria-expanded={isOpen} aria-controls="excel-content">
         <div className="flex items-center gap-2 text-xl font-bold">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            style={{ color: "var(--sidebar-primary)" }}
-          >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: "var(--sidebar-primary)" }}>
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <path d="M3 9h18M9 3v18" />
           </svg>
-          <h3 className="text-xl font-bold">
-            Subreddit Performance Table{username ? ` for u/${username}` : ""}{compare && username2 ? ` vs u/${username2}` : ""}
-          </h3>
+          <h3 className="text-xl font-bold">Subreddit Performance Table{username ? ` for u/${username}` : ""}{compare && username2 ? ` vs u/${username2}` : ""}</h3>
         </div>
-        <svg
-          className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
+        <svg className={`w-6 h-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </header>
@@ -440,80 +429,78 @@ export default function ExcelSheetSection({
           <CheckboxRow />
 
           {hasTop10 && !compare && (
-            <div className={`${s.tableContainer} overflow-x-auto overflow-y-auto rounded-md`} ref={containerRef}>
-              <div
-                className={s.excel}
-                role="table"
-                aria-label="Subreddit Performance (single)"
-                style={{ gridTemplateColumns: gridCols || `48px repeat(${cols.length}, minmax(156px, 1fr))`, minWidth: "860px" }}
-              >
-                <div className={`${s.cell} ${s.corner}`} aria-hidden="true"> </div>
-                {cols.map((c, i) => {
-                  const clickable = !nonSortableSingle.has(c.key)
-                  const label = (() => {
-                    if (sortKeySingle === c.key) return `${c.label} ${sortDirSingle === "desc" ? "▼" : "▲"}`
-                    return c.label
-                  })()
-                  const isSub = c.key === "Subreddit"
-                  return (
-                    <div
-                      key={`col-${c.key}`}
-                      className={`${s.cell} ${s.colhead}`}
-                      role="columnheader"
-                      aria-colindex={i + 1}
-                      title={c.label}
-                      onClick={() => clickable && onHeaderClickSingle(c.key)}
-                      style={{ cursor: clickable ? "pointer" : "default" }}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span>{label}</span>
-                        {isSub && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); copyAllSubs() }}
-                            aria-label="Copy all subreddits"
-                            className="rounded hover:text-primary transition-colors"
-                            title="Copy all subreddits"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 -960 960 960" fill="currentColor">
-                              <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-                {sortedRowsSingle.map((row: any, r: number) => (
-                  <React.Fragment key={`row-${r}`}>
-                    <div className={`${s.cell} ${s.rowhead}`} role="rowheader">{r + 1}</div>
-                    {cols.map((c) => {
-                      let val: any = row?.[c.key]
-                      if (c.key === "LastDateTimeUTC") val = val ? fmtUTC(val) : ""
-                      if (c.key === "Total_Upvotes" || c.key === "Total_Comments" || c.key === "Subreddit_Subscribers" || c.key === "WPI_Score") {
-                        const n = Number(val)
-                        val = Number.isFinite(n) ? n.toLocaleString() : (val ?? "")
-                      }
-                      if (c.key === "Avg_Upvotes_Per_Post" || c.key === "Avg_Comments_Per_Post") {
-                        const n = Number(val)
-                        val = Number.isFinite(n) ? Math.round(n).toLocaleString() : (val ?? "")
-                      }
-                      const isSub = c.key === "Subreddit"
-                      return (
-                        <div
-                          key={`${r}-${c.key}`}
-                          className={`${s.cell} ${isSub ? "cursor-pointer select-none" : ""}`}
-                          role="cell"
-                          title={isSub ? "Click to copy subreddit" : String(val ?? "")}
-                          onClick={isSub ? () => copySubreddit(String(val ?? "")) : undefined}
-                          aria-label={isSub ? `Copy subreddit ${String(val ?? "")}` : undefined}
-                        >
-                          {val ?? ""}
+            <div className={s.clipWrap}>
+              <div className={s.tableContainer} ref={containerRef} onClick={onTableClick}>
+                <div
+                  className={s.excel}
+                  role="table"
+                  aria-label="Subreddit Performance (single)"
+                  style={{ gridTemplateColumns: gridCols || `48px repeat(${cols.length}, minmax(156px, 1fr))`, minWidth: "860px" }}
+                >
+                  <div className={`${s.cell} ${s.corner}`} aria-hidden="true"> </div>
+                  {cols.map((c, i) => {
+                    const clickable = !nonSortableSingle.has(c.key)
+                    const label = sortKeySingle === c.key ? `${c.label} ${sortDirSingle === "desc" ? "▼" : "▲"}` : c.label
+                    const isSub = c.key === "Subreddit"
+                    return (
+                      <div
+                        key={`col-${c.key}`}
+                        className={`${s.cell} ${s.colhead}`}
+                        role="columnheader"
+                        aria-colindex={i + 1}
+                        title={c.label}
+                        onClick={() => clickable && onHeaderClickSingle(c.key)}
+                        style={{ cursor: clickable ? "pointer" : "default" }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span>{label}</span>
+                          {isSub && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); copyAllSubs() }}
+                              aria-label="Copy all subreddits"
+                              className="rounded hover:text-primary transition-colors"
+                              title="Copy all subreddits"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 -960 960 960" fill="currentColor">
+                                <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
-                      )
-                    })}
-                  </React.Fragment>
-                ))}
+                      </div>
+                    )
+                  })}
+                  {sortedRowsSingle.map((row: any, r: number) => (
+                    <React.Fragment key={`row-${r}`}>
+                      <div className={`${s.cell} ${s.rowhead}`} role="rowheader">{r + 1}</div>
+                      {cols.map((c) => {
+                        const isSub = c.key === "Subreddit"
+                        let val: any
+                        if (c.key === "Subreddit") val = row?.Subreddit ?? ""
+                        else if (c.key === "LastDateTimeUTC") val = row?._fmt?.LastDateTimeUTC ?? ""
+                        else if (c.key === "Total_Upvotes") val = row?._fmt?.Total_Upvotes ?? ""
+                        else if (c.key === "Total_Comments") val = row?._fmt?.Total_Comments ?? ""
+                        else if (c.key === "Subreddit_Subscribers") val = row?._fmt?.Subreddit_Subscribers ?? ""
+                        else if (c.key === "WPI_Score") val = row?._fmt?.WPI_Score ?? ""
+                        else if (c.key === "Avg_Upvotes_Per_Post") val = row?._fmt?.Avg_Upvotes_Per_Post ?? ""
+                        else if (c.key === "Avg_Comments_Per_Post") val = row?._fmt?.Avg_Comments_Per_Post ?? ""
+                        else val = row?.[c.key] ?? ""
+                        return (
+                          <div
+                            key={`${r}-${c.key}`}
+                            className={`${s.cell} ${isSub ? "cursor-pointer select-none" : ""}`}
+                            role="cell"
+                            title={String(val ?? "")}
+                            data-sub={isSub ? String(val ?? "") : undefined}
+                          >
+                            {val ?? ""}
+                          </div>
+                        )
+                      })}
+                    </React.Fragment>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -523,77 +510,111 @@ export default function ExcelSheetSection({
           )}
 
           {hasTop10 && compare && overlapSubs.length > 0 && (
-            <div className={s.tableContainer} ref={containerRef}>
-              <div className={s.excel} style={{
-                gridTemplateColumns: (() => {
-                  const num = "48px"
-                  const left = "minmax(200px, 280px)"
-                  const each = "minmax(140px, 1fr)"
-                  const segs: string[] = [num, left]
-                  for (const _ of metrics) segs.push(each, each)
-                  return segs.join(" ")
-                })(), minWidth: "860px"
-              }} role="table" aria-label="Subreddit Performance (compare)">
-                <div className={`${s.cell} ${s.corner}`} />
-                <div className={`${s.cell} ${s.colhead}`} />
-                {metrics.map(m => (
-                  <div key={`parent-${m.key}`} className={`${s.cell} ${s.colhead}`} style={{ gridColumn: `span 2` }}>{m.label}</div>
-                ))}
-                <div className={`${s.cell} ${s.colhead}`} />
-                <div className={`${s.cell} ${s.colhead}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Subreddit</span>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); copyAllSubs() }}
-                      aria-label="Copy all subreddits"
-                      className="rounded hover:text-primary transition-colors"
-                      title="Copy all subreddits"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 -960 960 960" fill="currentColor">
-                        <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                {metrics.map(m => (
-                  <React.Fragment key={`subheads-${m.key}`}>
-                    <div className={`${s.cell} ${s.colhead}`} onClick={() => onHeaderClickComp(`${m.key}__u1`)} style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}>
-                      {sortKeyComp === `${m.key}__u1` ? `user1 ${sortDirComp === "desc" ? "▼" : "▲"}` : "user1"}
+            <div className={s.clipWrap}>
+              <div className={s.tableContainer} ref={containerRef}>
+                <div
+                  className={s.stickyHeaderGroup}
+                  style={{
+                    gridTemplateColumns: (() => {
+                      const num = "48px"
+                      const left = "minmax(200px, 280px)"
+                      const each = "minmax(140px, 1fr)"
+                      const segs: string[] = [num, left]
+                      for (const _ of metrics) segs.push(each, each)
+                      return segs.join(" ")
+                    })()
+                  }}
+                  role="presentation"
+                >
+                  <div className={`${s.thCell} ${s.thRow1}`} />
+                  <div className={`${s.thCell} ${s.thRow1}`} />
+                  {metrics.map((m) => (
+                    <div key={`g-${m.key}`} className={`${s.thCell} ${s.thRow1}`} style={{ gridColumn: "span 2" }}>
+                      {m.label}
                     </div>
-                    <div className={`${s.cell} ${s.colhead}`} onClick={() => onHeaderClickComp(`${m.key}__u2`)} style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}>
-                      {sortKeyComp === `${m.key}__u2` ? `user2 ${sortDirComp === "desc" ? "▼" : "▲"}` : "user2"}
-                    </div>
-                  </React.Fragment>
-                ))}
-                {sortedSubsComp.map((sub, rIndex) => {
-                  const r1 = bySub1.get(sub)
-                  const r2 = bySub2.get(sub)
-                  return (
-                    <React.Fragment key={`row-${sub}`}>
-                      <div className={`${s.cell} ${s.rowhead}`}>{rIndex + 1}</div>
-                      <div
-                        className={`${s.cell} ${s.rowhead} cursor-pointer select-none`}
-                        style={{ textAlign: "left", fontWeight: 600 }}
-                        title="Click to copy subreddit"
-                        onClick={() => copySubreddit(sub)}
-                        aria-label={`Copy subreddit ${sub}`}
+                  ))}
+
+                  <div className={s.thCell} />
+                  <div className={s.thCell}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Subreddit</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); copyAllSubs() }}
+                        aria-label="Copy all subreddits"
+                        className="rounded hover:text-primary transition-colors"
+                        title="Copy all subreddits"
                       >
-                        {sub}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 -960 960 960" fill="currentColor">
+                          <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  {metrics.map(m => (
+                    <React.Fragment key={`sub-${m.key}`}>
+                      <div className={s.thCell} onClick={() => onHeaderClickComp(`${m.key}__u1`)} style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}>
+                        {sortKeyComp === `${m.key}__u1` ? `user1 ${sortDirComp === "desc" ? "▼" : "▲"}` : "user1"}
                       </div>
-                      {metrics.map(m => {
-                        const v1 = renderCellValue(m.key, r1)
-                        const v2 = renderCellValue(m.key, r2)
-                        return (
-                          <React.Fragment key={`${sub}-${m.key}`}>
-                            <div className={s.cell} role="cell" title={String(v1 ?? "")}>{v1 ?? ""}</div>
-                            <div className={s.cell} role="cell" title={String(v2 ?? "")}>{v2 ?? ""}</div>
-                          </React.Fragment>
-                        )
-                      })}
+                      <div className={s.thCell} onClick={() => onHeaderClickComp(`${m.key}__u2`)} style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}>
+                        {sortKeyComp === `${m.key}__u2` ? `user2 ${sortDirComp === "desc" ? "▼" : "▲"}` : "user2"}
+                      </div>
                     </React.Fragment>
-                  )
-                })}
+                  ))}
+                </div>
+
+                <div
+                  className={s.excel}
+                  style={{
+                    gridTemplateColumns: (() => {
+                      const num = "48px"
+                      const left = "minmax(200px, 280px)"
+                      const each = "minmax(140px, 1fr)"
+                      const segs: string[] = [num, left]
+                      for (const _ of metrics) segs.push(each, each)
+                      return segs.join(" ")
+                    })(),
+                    minWidth: "860px"
+                  }}
+                  role="table"
+                  aria-label="Subreddit Performance (compare)"
+                >
+                  <div className={`${s.cell} ${s.corner} ${s.headerSpacer}`} />
+                  <div className={`${s.cell} ${s.colhead} ${s.headerSpacer}`} />
+                  {metrics.map(m => (
+                    <div key={`p1-${m.key}`} className={`${s.cell} ${s.colhead} ${s.headerSpacer}`} style={{ gridColumn: "span 2" }} />
+                  ))}
+                  <div className={`${s.cell} ${s.colhead} ${s.headerSpacer}`} />
+                  <div className={`${s.cell} ${s.colhead} ${s.headerSpacer}`} />
+                  {metrics.map(m => (
+                    <React.Fragment key={`p2-${m.key}`}>
+                      <div className={`${s.cell} ${s.colhead} ${s.headerSpacer}`} />
+                      <div className={`${s.cell} ${s.colhead} ${s.headerSpacer}`} />
+                    </React.Fragment>
+                  ))}
+                  {sortedSubsComp.map((sub, rIndex) => {
+                    const r1 = bySub1.get(sub)
+                    const r2 = bySub2.get(sub)
+                    return (
+                      <React.Fragment key={`row-${sub}`}>
+                        <div className={`${s.cell} ${s.rowhead}`}>{rIndex + 1}</div>
+                        <div className={`${s.cell} ${s.rowhead} cursor-pointer select-none`} style={{ textAlign: "left", fontWeight: 600 }} title="Click to copy subreddit" onClick={() => writeClipboard(sub).then(ok => ok && notify("Subreddit copied!"))} aria-label={`Copy subreddit ${sub}`}>
+                          {sub}
+                        </div>
+                        {metrics.map(m => {
+                          const v1 = renderCellValue(m.key, preRow(r1))
+                          const v2 = renderCellValue(m.key, preRow(r2))
+                          return (
+                            <React.Fragment key={`${sub}-${m.key}`}>
+                              <div className={s.cell} role="cell" title={String(v1 ?? "")}>{v1 ?? ""}</div>
+                              <div className={s.cell} role="cell" title={String(v2 ?? "")}>{v2 ?? ""}</div>
+                            </React.Fragment>
+                          )
+                        })}
+                      </React.Fragment>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -636,11 +657,7 @@ export default function ExcelSheetSection({
       )}
 
       {toastMsg && (
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-md bg-foreground text-background px-3 py-2 text-sm shadow-lg"
-          role="status"
-          aria-live="polite"
-        >
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-md bg-foreground text-background px-3 py-2 text-sm shadow-lg" role="status" aria-live="polite">
           {toastMsg}
         </div>
       )}
