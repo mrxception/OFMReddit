@@ -62,7 +62,6 @@ export default function ExcelSheetSection({
   const [inclSubs, setInclSubs] = React.useState(subsAvailable ? defaults.inclSubs : false)
   const [inclPER, setInclPER] = React.useState(subsAvailable ? defaults.inclPER : false)
 
-  // Allow sorting on LastDateTimeUTC now (remove it from non-sortable set)
   const nonSortableSingle = new Set(["Subreddit"])
   const nonSortableCompare = new Set(["Subreddit"])
 
@@ -74,27 +73,38 @@ export default function ExcelSheetSection({
   const [colMinPx, setColMinPx] = React.useState<number[]>([])
   const [gridCols, setGridCols] = React.useState<string>("")
 
-  const [copied, setCopied] = React.useState(false)
+  const [toastMsg, setToastMsg] = React.useState<string | null>(null)
   const copyTimerRef = React.useRef<number | null>(null)
-  const copySubreddit = React.useCallback(async (name: string) => {
-    if (!name) return
+  const notify = React.useCallback((msg: string) => {
+    setToastMsg(msg)
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = window.setTimeout(() => setToastMsg(null), 1200)
+  }, [])
+  React.useEffect(() => () => { if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current) }, [])
+
+  const writeClipboard = React.useCallback(async (text: string) => {
     try {
-      await navigator.clipboard.writeText(name)
+      await navigator.clipboard.writeText(text)
+      return true
     } catch {
       const ta = document.createElement("textarea")
-      ta.value = name
+      ta.value = text
       ta.style.position = "fixed"
       ta.style.opacity = "0"
       document.body.appendChild(ta)
       ta.select()
-      try { document.execCommand("copy") } catch {}
+      let ok = true
+      try { document.execCommand("copy") } catch { ok = false }
       document.body.removeChild(ta)
+      return ok
     }
-    setCopied(true)
-    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
-    copyTimerRef.current = window.setTimeout(() => setCopied(false), 1200)
   }, [])
-  React.useEffect(() => () => { if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current) }, [])
+
+  const copySubreddit = React.useCallback(async (name: string) => {
+    if (!name) return
+    const ok = await writeClipboard(name)
+    if (ok) notify("Subreddit copied!")
+  }, [notify, writeClipboard])
 
   const cols = React.useMemo(() => {
     const list: Array<{ key: string; label: string }> = [
@@ -182,7 +192,7 @@ export default function ExcelSheetSection({
     if (compare) return
     let cancelled = false
     const run = async () => {
-      try { if ((document as any).fonts?.ready) await (document as any).fonts.ready } catch {}
+      try { if ((document as any).fonts?.ready) await (document as any).fonts.ready } catch { }
       const font = getComputedStyle(document.body).font || "14px system-ui, -apple-system, Segoe UI, Arial, sans-serif"
       const PADDING = 16
       const ICON_PAD = 16
@@ -307,6 +317,16 @@ export default function ExcelSheetSection({
     }
     return v
   }
+
+  const copyAllSubs = React.useCallback(async () => {
+    if (!rows || rows.length === 0) return
+    const list = compare
+      ? sortedSubsComp
+      : (sortedRowsSingle || []).map((r: any) => r?.Subreddit).filter(Boolean)
+    if (!list.length) return
+    const ok = await writeClipboard(list.join("\n"))
+    if (ok) notify("Subreddits copied!")
+  }, [compare, sortedRowsSingle, sortedSubsComp, rows, writeClipboard, notify])
 
   if (!rows || rows.length === 0) return null
 
@@ -434,6 +454,7 @@ export default function ExcelSheetSection({
                     if (sortKeySingle === c.key) return `${c.label} ${sortDirSingle === "desc" ? "▼" : "▲"}`
                     return c.label
                   })()
+                  const isSub = c.key === "Subreddit"
                   return (
                     <div
                       key={`col-${c.key}`}
@@ -444,7 +465,22 @@ export default function ExcelSheetSection({
                       onClick={() => clickable && onHeaderClickSingle(c.key)}
                       style={{ cursor: clickable ? "pointer" : "default" }}
                     >
-                      {label}
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{label}</span>
+                        {isSub && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); copyAllSubs() }}
+                            aria-label="Copy all subreddits"
+                            className="rounded hover:text-primary transition-colors"
+                            title="Copy all subreddits"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 -960 960 960" fill="currentColor">
+                              <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -488,21 +524,38 @@ export default function ExcelSheetSection({
 
           {hasTop10 && compare && overlapSubs.length > 0 && (
             <div className={s.tableContainer} ref={containerRef}>
-              <div className={s.excel} style={{ gridTemplateColumns: (() => {
-                const num = "48px"
-                const left = "minmax(200px, 280px)"
-                const each = "minmax(140px, 1fr)"
-                const segs: string[] = [num, left]
-                for (const _ of metrics) segs.push(each, each)
-                return segs.join(" ")
-              })(), minWidth: "860px" }} role="table" aria-label="Subreddit Performance (compare)">
+              <div className={s.excel} style={{
+                gridTemplateColumns: (() => {
+                  const num = "48px"
+                  const left = "minmax(200px, 280px)"
+                  const each = "minmax(140px, 1fr)"
+                  const segs: string[] = [num, left]
+                  for (const _ of metrics) segs.push(each, each)
+                  return segs.join(" ")
+                })(), minWidth: "860px"
+              }} role="table" aria-label="Subreddit Performance (compare)">
                 <div className={`${s.cell} ${s.corner}`} />
                 <div className={`${s.cell} ${s.colhead}`} />
                 {metrics.map(m => (
                   <div key={`parent-${m.key}`} className={`${s.cell} ${s.colhead}`} style={{ gridColumn: `span 2` }}>{m.label}</div>
                 ))}
                 <div className={`${s.cell} ${s.colhead}`} />
-                <div className={`${s.cell} ${s.colhead}`}>Subreddit</div>
+                <div className={`${s.cell} ${s.colhead}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Subreddit</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); copyAllSubs() }}
+                      aria-label="Copy all subreddits"
+                      className="rounded hover:text-primary transition-colors"
+                      title="Copy all subreddits"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 -960 960 960" fill="currentColor">
+                        <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
                 {metrics.map(m => (
                   <React.Fragment key={`subheads-${m.key}`}>
                     <div className={`${s.cell} ${s.colhead}`} onClick={() => onHeaderClickComp(`${m.key}__u1`)} style={{ cursor: nonSortableCompare.has(m.key) ? "default" : "pointer" }}>
@@ -582,13 +635,13 @@ export default function ExcelSheetSection({
         </div>
       )}
 
-      {copied && (
+      {toastMsg && (
         <div
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-md bg-foreground text-background px-3 py-2 text-sm shadow-lg"
           role="status"
           aria-live="polite"
         >
-          Subreddit copied!
+          {toastMsg}
         </div>
       )}
     </div>
