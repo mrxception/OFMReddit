@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
       `SELECT 
         u.id, 
         u.email, 
-        u.username,
         u.is_admin, 
         u.email_verified, 
         u.created_at,
