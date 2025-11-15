@@ -292,12 +292,16 @@ export default function Scraper() {
       })
       if (!pre.ok) {
         let reason = pre.statusText
-        let open = pre.status === 429
+        let open = false
         try {
           const j = await pre.json()
           if (j?.error) reason = j.error
-          if (j?.showTiers === true) open = true
-          if (typeof reason === "string" && /weekly|subscription/i.test(reason)) open = true
+          if (typeof j?.showTiers === "boolean") {
+            open = j.showTiers
+          } else {
+            if (pre.status === 429) open = true
+            if (typeof reason === "string" && /weekly|subscription/i.test(reason)) open = true
+          }
         } catch { }
         setShowTiers(open)
         setStatus(reason)
