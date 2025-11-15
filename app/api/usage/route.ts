@@ -32,8 +32,27 @@ export async function POST(req: Request) {
             "SELECT show_sub FROM site_controls WHERE id = 1 LIMIT 1",
             [],
         )
-        const showTiersFlag = Number(site?.show_sub ?? 1) === 1
+        const showTiersFlag = site ? !!Number(site.show_sub) : true
 
+        if (body?.debug === "site") {
+            const rawShowSub = site?.show_sub
+            const numShowSub =
+                rawShowSub === null || rawShowSub === undefined
+                    ? NaN
+                    : typeof rawShowSub === "number"
+                        ? rawShowSub
+                        : Number(rawShowSub)
+
+            return NextResponse.json({
+                debug: true,
+                siteExists: !!site,
+                rawShowSub,
+                rawType: typeof rawShowSub,
+                numShowSub,
+                finalFlag: site ? !!numShowSub : true,
+            })
+        }
+        
         if (op === "check") {
             const sub = await queryOne<{ tier_id: number; cooldown: string }>(
                 `SELECT tier_id, cooldown FROM user_subscriptions 
