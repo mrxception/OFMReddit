@@ -288,7 +288,7 @@ export default function Scraper() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ feature: "scraper", op: "check", debug: "site" }),
+        body: JSON.stringify({ feature: "scraper", op: "check"}),
       })
       if (!pre.ok) {
         let reason = pre.statusText
