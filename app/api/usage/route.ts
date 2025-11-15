@@ -34,6 +34,7 @@ export async function POST(req: Request) {
         )
         const showTiersFlag = site ? !!Number(site.show_sub) : true
 
+        /*
         if (body?.debug === "site") {
             const rawShowSub = site?.show_sub
             const numShowSub =
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
                 finalFlag: site ? !!numShowSub : true,
             })
         }
-        
+        */
         if (op === "check") {
             const sub = await queryOne<{ tier_id: number; cooldown: string }>(
                 `SELECT tier_id, cooldown FROM user_subscriptions 
