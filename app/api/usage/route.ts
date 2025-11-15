@@ -32,7 +32,7 @@ export async function POST(req: Request) {
             "SELECT show_sub FROM site_controls WHERE id = 1 LIMIT 1",
             [],
         )
-        const showTiersFlag = (site?.show_sub ?? 1) === 1
+        const showTiersFlag = Number(site?.show_sub ?? 1) === 1
 
         if (op === "check") {
             const sub = await queryOne<{ tier_id: number; cooldown: string }>(
