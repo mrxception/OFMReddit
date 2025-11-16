@@ -113,8 +113,8 @@ export default function Navigation() {
                 <Link
                   href="/scraper"
                   className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/scraper"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
                 >
                   Performance Analysis
@@ -122,8 +122,8 @@ export default function Navigation() {
                 <Link
                   href="/post-planner"
                   className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/post-planner"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
                 >
                   Post Planner
@@ -131,10 +131,19 @@ export default function Navigation() {
                 {user.isAdmin ? (
                   <>
                     <Link
+                      href="/reddit-database"
+                      className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/reddit-database"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                    >
+                      Reddit Database
+                    </Link>
+                    <Link
                       href="/caption-generator"
                       className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/caption-generator"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         }`}
                     >
                       Caption Generator
@@ -142,8 +151,8 @@ export default function Navigation() {
                     <Link
                       href="/admin"
                       className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/admin"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         }`}
                     >
                       <Shield className="w-4 h-4" />
@@ -218,9 +227,17 @@ export default function Navigation() {
             >
               Post Planner
             </Link>
-
             {user.isAdmin ? (
               <>
+                <Link
+                  href="/reddit-database"
+                  className={`hidden md:block px-4 py-2 rounded-lg font-medium transition-colors ${pathname === "/reddit-database"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                >
+                  Reddit Database
+                </Link>
                 <Link
                   href="/caption-generator"
                   onClick={() => setMobileMenuOpen(false)}
